@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface SlideOverProps {
   open: boolean;
@@ -19,8 +20,9 @@ const SWIPE_THRESHOLD = 80; // px rightward swipe to dismiss
 export const SlideOver: React.FC<SlideOverProps> = ({
   open, onClose, title, subtitle, children, footer, width = 'md'
 }) => {
-  const touchStartX = useRef<number>(0);
-  const panelRef    = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const touchStartX  = useRef<number>(0);
+  useFocusTrap(containerRef, open);
 
   // Keyboard close
   useEffect(() => {
@@ -64,7 +66,7 @@ export const SlideOver: React.FC<SlideOverProps> = ({
         aria-label={title}
       >
         <div
-          ref={panelRef}
+          ref={containerRef}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
           className={clsx(

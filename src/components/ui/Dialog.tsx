@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Button } from './Button';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface DialogProps {
   open: boolean;
@@ -18,6 +19,9 @@ const sizes = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-2xl' };
 export const Dialog: React.FC<DialogProps> = ({
   open, onClose, title, description, children, footer, size = 'md'
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(containerRef, open);
+
   useEffect(() => {
     if (!open) return;
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -32,8 +36,10 @@ export const Dialog: React.FC<DialogProps> = ({
       <div
         className="absolute inset-0 bg-black/30 backdrop-blur-sm"
         onClick={onClose}
+        aria-hidden="true"
       />
       <div
+        ref={containerRef}
         className={clsx(
           'relative w-full bg-white rounded-2xl shadow-float',
           'animate-in fade-in zoom-in-95 duration-200',
@@ -51,9 +57,10 @@ export const Dialog: React.FC<DialogProps> = ({
           </div>
           <button
             onClick={onClose}
+            aria-label="Close dialog"
             className="ml-4 p-1 rounded-lg text-ink-muted hover:text-ink-primary hover:bg-gray-100 transition-colors"
           >
-            <X size={18} />
+            <X size={18} aria-hidden="true" />
           </button>
         </div>
 

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useLocalStorage } from '../hooks/useLocalStorage';
 import { Upload, FileText, FileSpreadsheet, File } from 'lucide-react';
 import { PageTitle } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
@@ -79,7 +80,7 @@ function FileIcon({ type }: { type: string }) {
 }
 
 export const Documents: React.FC = () => {
-  const [activeTab, setActiveTab]     = useState<TabValue>('all');
+  const [activeTab, setActiveTab]     = useLocalStorage<TabValue>('taj_docs_tab', 'all');
   const [uploadOpen, setUploadOpen]   = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocumentRecord | null>(null);
   const [filters, setFilters]         = useState<FilterState>({});
