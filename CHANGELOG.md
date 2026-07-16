@@ -7,55 +7,59 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.8.0] — Sprint 8: Performance, RTL & Resilience — 2025-07-16
+## [0.9.0] — Sprint 9: Accessibility, Performance & i18n — 2025-07-16
 
 ### Added
 
-#### Code Splitting
-- All 7 pages converted to `React.lazy` + dynamic `import()` in `App.tsx`
-- `Suspense` boundary with `SkeletonPage` fallback — full-page loading skeleton shown during chunk fetch
-- `SkeletonPage` added to `Skeleton.tsx` — matches real TopBar + card grid + table layout
-- Main JS bundle reduced from ~370 KB → ~280 KB gzip; 7 page chunks built separately
+#### Focus Trap
+- `useFocusTrap` hook — locks keyboard Tab/Shift+Tab cycling inside a container ref while `active`; restores focus to the previously-focused element on deactivation
+- `Dialog` — `useFocusTrap` applied; focus moves to first focusable child on open; restored on close
+- `SlideOver` — `useFocusTrap` applied; same focus-cycle-lock and restore behaviour
+- Both components had `aria-hidden="true"` added to backdrop click-catchers
 
-#### Error Boundary
-- `ErrorBoundary` class component — catches any render error below the provider tree
-- Shows gold-accented error card with message preview and "Reload application" button
-- Wraps the entire `Routes` tree in `App.tsx`
+#### AnimatedCounter — Intersection Observer
+- `AnimatedCounter` now uses `IntersectionObserver` (threshold 0.2) to defer the RAF animation until the counter enters the viewport
+- Counters on pages below the fold no longer fire on mount; they animate the moment the user scrolls them into view
 
-#### RTL / Arabic Layout
-- `SettingsContext` — `isRTL` boolean + `setIsRTL`; persisted via localStorage (`taj_rtl`)
-- `useEffect` in `SettingsProvider` sets `document.documentElement.dir` and `lang` on change
-- `Settings` → Appearance — "Arabic (RTL) layout" toggle
+#### i18n Foundation
+- `src/i18n/locales.ts` — comprehensive English / Arabic locale map covering navigation, actions, status labels, document types, page titles, settings, onboarding, upload, error, offline, and update strings
+- `useT` hook — reads `isRTL` from `SettingsContext` to select `ar` or `en` locale; `t(key)` falls back to English then to the raw key
+- Foundation is ready for full UI wiring in a future sprint
 
-#### Service Worker Update Banner
-- `UpdateBanner` — watches `serviceWorker.getRegistration()` for waiting SW; shows `SKIP_WAITING` prompt
-- Dark floating banner with gold "Update" button + dismiss; appears above mobile bottom nav
-- Mounted in `AppShell`
+#### Tab Persistence
+- `Documents` page — `activeTab` state migrated from `useState` to `useLocalStorage('taj_docs_tab')`; the selected tab survives page navigation and browser refreshes
 
-#### Swipe Gestures
-- `SlideOver` — right-swipe (≥80 px) dismisses panel on touch devices
-- `OnboardingTour` — left-swipe → next step; right-swipe → previous step (≥60 px threshold); swipe hint shown on mobile
+### Changed
+- `Dialog` — backdrop `div` marked `aria-hidden="true"`; close button gets `aria-label="Close dialog"`
+- `SlideOver` — backdrop `div` marked `aria-hidden="true"` (was implicit); focus trap added alongside existing swipe-to-dismiss
+
+---
+
+## [0.8.0] — Sprint 8: Performance, RTL & Resilience — 2025-07-16
+
+### Added
+- Code splitting — React.lazy + Suspense; `SkeletonPage` Suspense fallback; main bundle ~280 KB (was ~370 KB)
+- `ErrorBoundary` — global class-based boundary with reload button
+- RTL / Arabic — `isRTL` toggle in Settings; sets `dir` + `lang` on `<html>`
+- `UpdateBanner` — SW waiting → SKIP_WAITING prompt
+- Swipe gestures — `SlideOver` swipe-to-dismiss; `OnboardingTour` swipe navigation
 
 ---
 
 ## [0.7.0] — Sprint 7: PWA Advanced Features — 2025-07-16
 
 ### Added
-- `usePWAInstall` hook + gold "Install App" button in TopBar
+- `usePWAInstall` + gold "Install App" button in TopBar
 - `navigator.share()` on DocumentDetailPanel + full-screen document viewer
-- `useNotifications` hook; Notification permission UI in Settings; classify trigger
-- Print stylesheet — `@media print` rules in `index.css`
+- `useNotifications` hook + permission UI in Settings + classify trigger
+- Print stylesheet — `@media print` in `index.css`
 
 ---
 
 ## [0.6.0] — Sprint 6: Progressive Web App — 2025-07-16
 
 ### Added
-- `vite-plugin-pwa` + Workbox SW (14-entry precache); `manifest.webmanifest`
-- PWA icons (192, 512, 512-maskable, 180 apple-touch-icon)
-- PWA meta tags; Camera upload; `OfflineBanner`; touch optimisation
-
----
+- `vite-plugin-pwa` + Workbox SW; `manifest.webmanifest`; PWA icons; meta tags; camera upload; `OfflineBanner`; touch optimisation
 
 ## [0.5.0] — Sprint 5: Persistence, Onboarding, Accessibility & Mobile — 2025-07-16
 - localStorage persistence; `OnboardingTour`; ARIA; `MobileBottomNav`; hamburger drawer; Design System showcase
