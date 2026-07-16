@@ -68,3 +68,54 @@
   /* Active press feedback on mobile */
   .active\:scale-95:active { transform: scale(0.95); }
 }
+
+/* ── Print stylesheet ──────────────────────────────────────────────────────── */
+@media print {
+  /* Hide non-printable UI */
+  header,
+  nav,
+  footer,
+  aside,
+  [role="navigation"],
+  [role="dialog"],
+  [role="banner"],
+  .no-print,
+  button:not(.print-action),
+  [data-print="hidden"] {
+    display: none !important;
+  }
+
+  /* Reset background / box model for paper */
+  html, body {
+    background: white !important;
+    color: #1A1A1A !important;
+    font-size: 11pt !important;
+    padding: 0 !important;
+  }
+
+  /* Preserve gold headings */
+  h1, h2, h3, h4 {
+    color: #1A1A1A !important;
+    page-break-after: avoid;
+  }
+
+  /* Sensible table printing */
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #E5E7EB; padding: 6pt 8pt; font-size: 10pt; }
+  thead { display: table-header-group; }
+  tr { page-break-inside: avoid; }
+
+  /* Don't print card shadows */
+  .card, [class*="shadow"] { box-shadow: none !important; border: 1px solid #E5E7EB !important; }
+
+  /* Page break helpers */
+  .page-break-before { page-break-before: always; }
+  .page-break-after  { page-break-after: always; }
+  .page-break-avoid  { page-break-inside: avoid; }
+
+  /* Show URLs for links */
+  a[href]::after { content: ' (' attr(href) ')'; font-size: 8pt; color: #6B7280; }
+
+  /* Ensure the main content area fills the page */
+  #main-content { max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+}

@@ -1,7 +1,7 @@
 # TAJ Finance — Handoff Document
 
 > For any agent or developer picking up this project.
-> Last updated: 2025-07-16 — Sprint 6 complete.
+> Last updated: 2025-07-16 — Sprint 7 complete.
 
 ---
 
@@ -9,18 +9,19 @@
 
 ```bash
 npm install
-npm run dev        # dev server at http://localhost:5173 (SW disabled in dev)
+npm run dev        # dev server (SW disabled in dev)
 npm run build      # production build → dist/ (SW + manifest generated)
-npm run preview    # serve production build locally (SW active)
+npm run preview    # serve production build (SW active — test PWA install here)
 ```
 
 ---
 
 ## PWA notes
-- Service worker is **disabled in dev** (`devOptions.enabled: false` in `vite.config.ts`) to avoid caching issues during development.
-- Run `npm run build && npm run preview` to test the full PWA experience (install prompt, offline, etc.).
-- Icons are in `public/`: `pwa-192.png`, `pwa-512.png`, `apple-touch-icon.png`.
-- Regenerate icons: `magick -size 512x512 xc:"#C9A84C" ... pwa-512.png` (see CHANGELOG for full command).
+- SW disabled in dev (`devOptions.enabled: false`). Use `npm run preview` for full PWA experience.
+- Install prompt (`usePWAInstall`) only fires in production builds or when served over HTTPS.
+- Icons: `public/pwa-192.png`, `public/pwa-512.png`, `public/apple-touch-icon.png`.
+- Notification permission is requested via Settings → Notifications → "Enable push notifications".
+- Classification complete triggers a push notification if permission is granted.
 
 ---
 
@@ -29,63 +30,53 @@ npm run preview    # serve production build locally (SW active)
 ```
 TAJ/
 ├── src/
-│   ├── App.tsx
-│   ├── main.tsx
-│   ├── index.css                            # Touch optimisation + safe-area insets + PWA CSS
-│   ├── context/
-│   │   └── SettingsContext.tsx              # AI companion + notification prefs (localStorage)
+│   ├── App.tsx / main.tsx / index.css
+│   ├── context/SettingsContext.tsx           # AI + notification prefs (localStorage)
 │   ├── hooks/
-│   │   └── useLocalStorage.ts
+│   │   ├── useLocalStorage.ts
+│   │   ├── usePWAInstall.ts                  # beforeinstallprompt intercept
+│   │   └── useNotifications.ts              # Notification API wrapper
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── AppShell.tsx                # Shell + OfflineBanner + OnboardingTour
-│   │   │   ├── TopBar.tsx                  # Desktop nav + hamburger drawer
-│   │   │   └── MobileBottomNav.tsx         # Fixed bottom nav < md
-│   │   ├── onboarding/
-│   │   │   └── OnboardingTour.tsx
-│   │   ├── pwa/
-│   │   │   └── OfflineBanner.tsx           # Online/offline event listener banner
-│   │   ├── ui/                             # Full design system (Sprint 1–4)
-│   │   ├── ai/AICompanion.tsx
-│   │   ├── banking/BankTransactionDetail.tsx
-│   │   ├── dashboard/                      # LaunchpadCard, RecentActivity, AISuggestions, SpendChart
-│   │   ├── documents/                      # UploadModal (+ camera), DocumentDetailPanel, ClassificationFlow, BatchClassifyBar
-│   │   ├── notifications/NotificationCenter.tsx
-│   │   ├── reports/ReportWizard.tsx
-│   │   └── search/GlobalSearch.tsx
-│   └── pages/                              # Dashboard, Documents, Reports, BankMatching, AI, Settings, DesignSystem
+│   │   │   ├── AppShell.tsx                  # Shell + OfflineBanner + keyboard shortcuts
+│   │   │   ├── TopBar.tsx                    # Desktop nav + install button + hamburger
+│   │   │   └── MobileBottomNav.tsx
+│   │   ├── onboarding/OnboardingTour.tsx
+│   │   ├── pwa/OfflineBanner.tsx
+│   │   ├── ui/                              # Full design system (Sprint 1–4)
+│   │   ├── documents/
+│   │   │   ├── UploadModal.tsx              # Drag+drop + camera capture
+│   │   │   ├── DocumentDetailPanel.tsx      # Detail + full-screen viewer + Share API
+│   │   │   ├── ClassificationFlow.tsx
+│   │   │   └── BatchClassifyBar.tsx
+│   │   └── ...other components
+│   └── pages/
+│       ├── Settings.tsx                     # Notification permission UI
+│       └── ...other pages
 ├── public/
-│   ├── favicon.svg
-│   ├── pwa-192.png                         # PWA launcher icon
-│   ├── pwa-512.png                         # PWA splash / maskable icon
-│   └── apple-touch-icon.png               # iOS home screen icon
-├── vite.config.ts                          # VitePWA plugin config
-├── index.html                              # PWA meta tags, manifest link
-├── CHANGELOG.md
-├── FILE_INDEX.md
-├── HANDOFF.md
-├── PROJECT_BIBLE.md
-├── PROJECT_STATE.md
-├── tailwind.config.js
-└── package.json
+│   ├── favicon.svg / pwa-192.png / pwa-512.png / apple-touch-icon.png
+├── vite.config.ts                           # VitePWA plugin
+├── index.html                               # PWA meta tags
+└── ...docs
 ```
 
 ---
 
-## Key decisions
+## Key decisions & gotchas
 
 1. **All data is mock/static.** No backend or DB.
-2. **PWA strategy** — Web-first, installable PWA. Native apps excluded until after Beta (see PROJECT_BIBLE / PWA Strategy doc).
-3. **SW disabled in dev** — `devOptions.enabled: false`. Use `npm run preview` to test SW.
-4. **SettingsContext** — AI companion + notification prefs, all persisted via `useLocalStorage`.
-5. **Design tokens** in `tailwind.config.js` — gold shades, ink, surface, shadows, fonts.
-6. **No dark mode.** Excluded from scope by PROJECT_BIBLE.
-7. **verbatimModuleSyntax** — always use `import type` for type-only imports.
-8. **SortableTable** preferred over basic Table for all new list UIs.
-9. **Prop gotchas** — `Tooltip` prop is `side`; `ProgressBar` prop is `variant`; `Breadcrumbs` prop is `crumbs`.
-10. **Mobile layout** — desktop nav `hidden md:flex`; mobile uses bottom nav + hamburger drawer; `pb-20 md:pb-8` on main.
-11. **Camera upload** — `<input type=file capture=environment>` in UploadModal, visible only on mobile (`< sm`).
-12. **Touch delay** — eliminated via `touch-action: manipulation` in `index.css`.
+2. **PWA-first** — installable, offline-capable, camera-enabled. Native apps excluded until Beta.
+3. **SW disabled in dev** — use `npm run preview` to test install prompt and offline.
+4. **verbatimModuleSyntax** — always `import type` for type-only imports.
+5. **SortableTable** preferred over basic `Table` for all new list UIs.
+6. **Prop gotchas** — `Tooltip` → `side`; `ProgressBar` → `variant`; `Breadcrumbs` → `crumbs`.
+7. **Notification flow** — `useNotifications` hook; requestPermission() in Settings; `notify()` after classify.
+8. **Share API** — guarded by `typeof navigator.share === 'function'`; button hidden on unsupported browsers.
+9. **Install button** — rendered only when `canInstall` is true; hides after install or in standalone mode.
+10. **Print CSS** — `@media print` in `index.css`; use class `no-print` to exclude elements.
+11. **Touch optimisation** — `.touch-target` enforces 44×44 px minimum; `touch-action: manipulation` removes 300ms delay.
+12. **Mobile layout** — bottom nav + hamburger drawer; `pb-20 md:pb-8` on main content.
+13. **Onboarding** — reset by clearing `taj_onboarding_done` from localStorage.
 
 ---
 
@@ -94,20 +85,19 @@ TAJ/
 | Path             | Component      | Notes                                        |
 |------------------|----------------|----------------------------------------------|
 | `/`              | Dashboard      | Launchpad, stats, SpendChart                 |
-| `/documents`     | Documents      | Filters, batch, upload (+ camera), detail    |
-| `/reports`       | Reports        | SortableTable, wizard, export                |
+| `/documents`     | Documents      | Filters, batch, upload+camera, detail+viewer |
+| `/reports`       | Reports        | SortableTable, filters, wizard, export       |
 | `/bank-matching` | BankMatching   | SortableTable, TX detail                     |
 | `/ai`            | AI             | Capability cards                             |
-| `/settings`      | Settings       | AI + notification toggles (persisted)        |
+| `/settings`      | Settings       | AI toggle, notification permission, prefs    |
 | `/design-system` | DesignSystem   | Sprint 1–4 full component showcase           |
 
 ---
 
 ## For next agent
 
-1. Read `PROJECT_BIBLE.md` and PWA strategy before any sprint.
+1. Read `PROJECT_BIBLE.md` + PWA strategy doc before any sprint.
 2. Check `PROJECT_STATE.md` for current status.
-3. Run `npm run build` before every commit — 0 errors required.
-4. Test PWA with `npm run preview` (SW only active in production build).
+3. `npm run build` before every commit — 0 errors required.
+4. Test PWA features with `npm run preview` (SW only active in production build).
 5. Update CHANGELOG, PROJECT_STATE, HANDOFF, FILE_INDEX after every sprint.
-6. Commit and push after every milestone.

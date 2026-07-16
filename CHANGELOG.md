@@ -7,39 +7,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.6.0] — Sprint 6: Progressive Web App — 2025-07-16
+## [0.7.0] — Sprint 7: PWA Advanced Features — 2025-07-16
 
 ### Added
 
-#### PWA Core
-- `vite-plugin-pwa` installed and configured with `generateSW` strategy
-- `manifest.webmanifest` generated — name, short_name, description, theme_color (#C9A84C), display standalone, start_url `/`, orientation portrait-primary
-- Service worker via Workbox — precaches all JS/CSS/HTML/PNG/SVG/WOFF2 assets (14 entries, ~426 KB)
-- Runtime caching for Google Fonts (CacheFirst, 1-year TTL)
+#### PWA Install Prompt
+- `usePWAInstall` hook — intercepts `beforeinstallprompt` event; detects standalone mode
+- `TopBar` — gold "Install App" button appears when the PWA is installable; hides after install or when already running standalone
 
-#### Icons
-- `public/pwa-192.png` — 192×192 launcher icon
-- `public/pwa-512.png` — 512×512 launcher icon (also registered as maskable)
-- `public/apple-touch-icon.png` — 180×180 for iOS home screen
+#### Share API
+- `DocumentDetailPanel` — "Share" button using `navigator.share()`; only rendered when `navigator.share` is available (mobile/desktop that supports Web Share API)
+- Full-screen viewer also exposes a share button
 
-#### Meta / index.html
-- `<link rel="manifest">`, `<link rel="apple-touch-icon">`
-- `theme-color`, `mobile-web-app-capable`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`, `application-name`, `msapplication-TileColor`
-- `viewport-fit=cover` for notched devices
+#### Notification API
+- `useNotifications` hook — wraps `Notification.requestPermission()`, `permission` state, and `notify()` helper
+- `Settings` → Notifications tab — shows permission status badge, "Enable push notifications" button (when `default`), "Send test" button (when `granted`), and blocked message (when `denied`)
+- `DocumentDetailPanel` — triggers a notification on classification complete (if permission granted)
 
-#### Camera Upload
-- `UploadModal` — "Take a photo" button (mobile only, `< sm` breakpoint); uses `<input type=file capture=environment accept=image/*>`
-- Validates camera-captured images (any image/* type accepted alongside PDF/XLSX)
+#### Document Viewer
+- `DocumentDetailPanel` — enhanced preview panel with expand button (hover-reveal)
+- Full-screen viewer modal: dark overlay, document metadata, download CTA, share button
+- ARIA: `role="dialog"`, `aria-modal`, `aria-label` on viewer
 
-#### Offline Indicator
-- `OfflineBanner` — mounted in `AppShell`; listens to `window online/offline` events; shows dark banner when offline, green "Back online" flash for 3s on reconnect
+#### Print Stylesheet
+- `index.css` — `@media print` rules: hide nav/buttons/dialogs; reset backgrounds; tableguard for proper border-collapse; `page-break-*` helper classes; show link URLs in print; `#main-content` fills page
 
-#### Touch Optimisation — `index.css`
-- `-webkit-tap-highlight-color: transparent` + `touch-action: manipulation` on all interactive elements — removes 300ms tap delay
-- `overscroll-behavior-y: contain` on body — prevents pull-to-refresh interfering with in-app scroll
-- Safe-area insets (`env(safe-area-inset-*)`) for notched iPhones
-- `.touch-target` utility class — enforces 44×44 px minimum tap target
-- `active:scale-95` press feedback on touch
+### Changed
+- `Settings` — Notifications section now includes browser push notification permission management (request, test, status badge)
+- `TopBar` — `usePWAInstall` wired; install button visible only when installable
+
+---
+
+## [0.6.0] — Sprint 6: Progressive Web App — 2025-07-16
+
+### Added
+- `vite-plugin-pwa` + Workbox service worker (14-entry precache ~434 KB)
+- `manifest.webmanifest` — full metadata, icons, theme_color #C9A84C, standalone display
+- Icons: `pwa-192.png`, `pwa-512.png` (maskable), `apple-touch-icon.png`
+- PWA meta tags in `index.html` — theme-color, apple-mobile-web-app-*, viewport-fit=cover
+- Camera upload — "Take a photo" button in `UploadModal` (mobile only, `capture=environment`)
+- `OfflineBanner` — online/offline event listener; mounted in `AppShell`
+- Touch optimisation — tap-highlight removed, 300ms delay eliminated, safe-area insets, `.touch-target` utility
 
 ---
 
@@ -49,40 +57,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Persistent state (localStorage): AI companion + notification prefs
 - `OnboardingTour` — 5-step first-run wizard
 - Accessibility: skip-to-main, ARIA labels/roles, focus-visible rings
-- `MobileBottomNav` — fixed bottom nav < md breakpoint
+- `MobileBottomNav` — fixed bottom nav < md
 - TopBar hamburger drawer for mobile
-- Design System page: full Sprint 3–4 component showcase
+- Design System page: Sprint 3–4 component showcase
 
 ---
 
 ## [0.4.0] — Sprint 4: Polish & Advanced UX — 2025-07-16
-
-### Added
-- `KeyboardShortcuts`, `ShortcutsButton`, `AppShell` g+X shortcuts
-- `SpendChart` — SVG sparklines
-- `BatchClassifyBar` — floating batch action bar
-
----
+- `KeyboardShortcuts`, `ShortcutsButton`, g+X shortcuts
+- `SpendChart` — SVG sparklines; `BatchClassifyBar` — floating batch action bar
 
 ## [0.3.0] — Sprint 3: Data & Filters — 2025-07-16
-
-### Added
 - `Skeleton`, `Pagination`, `DateRangePicker`, `FilterPanel`, `SortableTable`, `AnimatedCounter`, `ExportButton`
 - `GlobalSearch` — Cmd+K overlay
 
----
-
 ## [0.2.0] — Sprint 2: Core Workflows — 2025-07-16
-
-### Added
 - `Tooltip`, `EmptyState`, `ProgressBar`, `StepIndicator`, `Tabs`, `SlideOver`, `Breadcrumbs`
-- `UploadModal`, `DocumentDetailPanel`, `ClassificationFlow`
-- `NotificationCenter`, `ReportWizard`, `BankTransactionDetail`
-
----
+- `UploadModal`, `DocumentDetailPanel`, `ClassificationFlow`, `NotificationCenter`, `ReportWizard`, `BankTransactionDetail`
 
 ## [0.1.0] — Sprint 1: Foundation — 2025-07-16
-
-### Added
-- Vite + React 18 + TypeScript, Tailwind CSS v3, React Router v6
-- Design system primitives, layout, all pages
+- Vite + React 18 + TypeScript, Tailwind CSS v3, React Router v6, design system primitives, all pages

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Sparkles, Bell, Globe, Shield, Users, Palette } from 'lucide-react';
+import { Sparkles, Bell, Globe, Shield, Users, Palette, BellRing, BellOff } from 'lucide-react';
 import { PageTitle } from '../components/ui/Typography';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import { Badge } from '../components/ui/Badge';
 import { useSettings } from '../context/SettingsContext';
+import { useNotifications } from '../hooks/useNotifications';
 
 const SECTIONS = [
   { id: 'general',      label: 'General',          icon: Globe },
@@ -48,11 +50,22 @@ export const Settings: React.FC = () => {
     notificationsPush,  setNotificationsPush,
     notificationsDigest, setNotificationsDigest,
   } = useSettings();
+  const { supported: notifSupported, permission, requestPermission, notify } = useNotifications();
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleTestNotification = () => {
+    notify('TAJ Finance', { body: 'Test notification — everything is working correctly.' });
+  };
+
+  const permissionLabel: Record<string, string> = {
+    granted: 'Enabled',
+    denied:  'Blocked by browser',
+    default: 'Not yet requested',
   };
 
   return (
@@ -117,9 +130,61 @@ export const Settings: React.FC = () => {
             <Card padding="md">
               <CardHeader title="Notifications" subtitle="Choose when and how you are notified" />
               <div>
-                <Toggle label="Email notifications" hint="Receive updates via email"   checked={notificationsEmail}  onChange={setNotificationsEmail} />
-                <Toggle label="Browser push"        hint="Push notifications in browser" checked={notificationsPush}   onChange={setNotificationsPush} />
+                <Toggle label="Email notifications" hint="Receive updates via email"    checked={notificationsEmail}  onChange={setNotificationsEmail} />
                 <Toggle label="Daily digest"        hint="Summary email every morning"  checked={notificationsDigest} onChange={setNotificationsDigest} />
+
+                {/* Push notification permission */}
+                {notifSupported && (
+                  <div className="py-4 border-b border-border/60">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-ink-primary">Browser push notifications</p>
+                        <p className="text-xs text-ink-muted mt-0.5">Receive alerts when documents are classified or reports are ready</p>
+                      </div>
+                      <Badge
+                        variant={permission === 'granted' ? 'success' : permission === 'denied' ? 'danger' : 'default'}
+                        dot
+                      >
+                        {permissionLabel[permission]}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center gap-2 mt-3">
+                      {permission === 'default' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          icon={<BellRing size={13} />}
+                          onClick={requestPermission}
+                        >
+                          Enable push notifications
+                        </Button>
+                      )}
+                      {permission === 'granted' && (
+                        <>
+                          <Toggle
+                            label="Push notifications"
+                            checked={notificationsPush}
+                            onChange={setNotificationsPush}
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            icon={<BellRing size={13} />}
+                            onClick={handleTestNotification}
+                          >
+                            Send test
+                          </Button>
+                        </>
+                      )}
+                      {permission === 'denied' && (
+                        <p className="text-xs text-ink-muted flex items-center gap-1">
+                          <BellOff size={12} aria-hidden="true" />
+                          Notifications are blocked. Enable them in your browser settings.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           )}

@@ -1,7 +1,7 @@
 # TAJ Finance — Project State
 
 > Last updated: 2025-07-16
-> Current sprint: **Sprint 6 — Progressive Web App** ✅ COMPLETE
+> Current sprint: **Sprint 7 — PWA Advanced Features** ✅ COMPLETE
 
 ---
 
@@ -21,14 +21,18 @@
 | Onboarding tour             | ✅ Done   | 5-step first-run modal                                             |
 | Accessibility               | ✅ Done   | Skip-to-main, ARIA labels, focus-visible                          |
 | Mobile responsive           | ✅ Done   | Hamburger drawer, MobileBottomNav                                  |
-| **PWA — manifest**          | ✅ Done   | `manifest.webmanifest` with full metadata + icons                  |
-| **PWA — service worker**    | ✅ Done   | Workbox generateSW, 14-entry precache, font runtime cache          |
-| **PWA — icons**             | ✅ Done   | 192px, 512px, 512px maskable, 180px apple-touch-icon               |
-| **PWA — meta tags**         | ✅ Done   | theme-color, apple-mobile-web-app-*, viewport-fit=cover            |
-| **Camera upload**           | ✅ Done   | Mobile "Take a photo" button in UploadModal (capture=environment)  |
-| **Offline indicator**       | ✅ Done   | OfflineBanner with online/offline event listeners                  |
-| **Touch optimisation**      | ✅ Done   | tap-highlight removed, 300ms delay eliminated, safe-area insets    |
-| Build passing               | ✅ Done   | 0 TypeScript errors; SW + manifest generated                       |
+| PWA — manifest + SW         | ✅ Done   | Workbox generateSW, 14-entry precache, font cache                  |
+| PWA — icons                 | ✅ Done   | 192px, 512px maskable, 180px apple-touch-icon                     |
+| PWA — meta tags             | ✅ Done   | theme-color, apple-*, viewport-fit=cover                          |
+| Camera upload               | ✅ Done   | `capture=environment` in UploadModal (mobile)                     |
+| Offline indicator           | ✅ Done   | OfflineBanner with online/offline events                          |
+| Touch optimisation          | ✅ Done   | tap-highlight removed, safe-area insets, .touch-target            |
+| **PWA install prompt**      | ✅ Done   | `usePWAInstall` + gold Install button in TopBar                   |
+| **Share API**               | ✅ Done   | `navigator.share()` on DocumentDetailPanel + full-screen viewer    |
+| **Notification API**        | ✅ Done   | `useNotifications` hook; permission UI in Settings; classify trigger |
+| **Document viewer**         | ✅ Done   | Full-screen viewer modal with share + download; expand on hover    |
+| **Print stylesheet**        | ✅ Done   | @media print: hides UI chrome, table styles, page-break utilities  |
+| Build passing               | ✅ Done   | 0 TypeScript errors                                                |
 
 ---
 
@@ -38,7 +42,7 @@
 - Real OCR / AI / LLM integration
 - Real backend / API
 - Dark mode
-- Native iOS / Android apps (PWA replaces native — by design)
+- Native iOS / Android apps (PWA replaces native — by design per PWA Strategy doc)
 
 ---
 
@@ -60,20 +64,19 @@
 |-----------|--------|------------------------------------------|
 | `101e506` | S1     | Foundation                               |
 | `695cb79` | S2     | Core Workflows                           |
-| `d92a49e` | S2     | docs                                     |
 | `101609e` | S3     | Data & Filters                           |
-| `a393e94` | S3     | docs                                     |
 | `47df7af` | S4     | Polish & Advanced UX                     |
-| `b5c5392` | S4     | docs                                     |
 | `823536f` | S5     | Persistence, Onboarding, Accessibility & Mobile |
-| TBD       | S6     | Progressive Web App                      |
+| `18bd903` | S6     | Progressive Web App                      |
+| TBD       | S7     | PWA Advanced Features                    |
 
 ---
 
-## Possible Sprint 7 scope
-- Install prompt UI — `BeforeInstallPromptEvent` intercept + gold "Install App" button in TopBar
-- Print stylesheet — `@media print` CSS for reports and documents
-- Document viewer — full-screen mobile viewer for uploaded documents (image zoom, PDF embed)
-- Share API — native Web Share API on document detail panel
-- Notification API — request permission + show push notifications on classify complete
-- i18n / Arabic RTL — right-to-left layout support (dir="rtl") for Saudi Arabic users
+## Possible Sprint 8 scope
+- Arabic / RTL support — `dir="rtl"` toggle, RTL-aware Tailwind utilities, bilingual labels
+- Report print view — dedicated print layout for Reports page (TAJ header, page numbers, footer)
+- Document upload to real storage — App Storage (object storage) integration
+- Swipe gestures — swipe-to-dismiss SlideOver on mobile; swipe navigation in onboarding tour
+- App update banner — `vite-plugin-pwa` `useRegisterSW` hook; notify user when new version available
+- Performance — code-split pages via React.lazy + Suspense; skeleton placeholders during load
+- Error boundary — global React ErrorBoundary with fallback UI and reload button

@@ -3,11 +3,12 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Search, LayoutDashboard, FileText, BarChart2,
   GitMerge, Sparkles, Settings, User, ChevronDown, LogOut,
-  UserCircle, Menu, X,
+  UserCircle, Menu, X, Download,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { NotificationBell } from '../notifications/NotificationCenter';
 import { GlobalSearch } from '../search/GlobalSearch';
+import { usePWAInstall } from '../../hooks/usePWAInstall';
 
 const NAV_ITEMS = [
   { to: '/',              label: 'Dashboard',    icon: LayoutDashboard },
@@ -23,6 +24,7 @@ export const TopBar: React.FC = () => {
   const [searchOpen,   setSearchOpen]   = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navigate = useNavigate();
+  const { canInstall, install } = usePWAInstall();
 
   return (
     <>
@@ -96,6 +98,17 @@ export const TopBar: React.FC = () => {
 
           {/* Right side */}
           <div className="flex items-center gap-2 shrink-0">
+            {/* PWA install button — only shown when installable */}
+            {canInstall && (
+              <button
+                onClick={install}
+                aria-label="Install TAJ Finance app"
+                className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold-500 hover:bg-gold-600 text-white text-xs font-medium transition-colors"
+              >
+                <Download size={13} aria-hidden="true" />
+                Install App
+              </button>
+            )}
             <NotificationBell />
 
             {/* User Menu */}
