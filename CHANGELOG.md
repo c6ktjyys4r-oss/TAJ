@@ -7,46 +7,71 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.2.0] — Sprint 2: Core Workflows — 2025-07-16
+
+### Added
+
+#### New UI Primitives
+- `Tooltip` — hover tooltip with configurable side (top/bottom/left/right)
+- `EmptyState` — centred empty-state with icon, title, description, and optional CTA
+- `ProgressBar` — animated progress bar (sm/md/lg, gold/success/info variants)
+- `StepIndicator` — numbered step wizard indicator with done/active/pending states
+- `Tabs` — generic tab bar (underline + pill variants) with optional count badges; accepts readonly arrays
+- `SlideOver` — animated right-side panel with backdrop, keyboard dismiss, footer slot
+- `Breadcrumbs` — breadcrumb navigation using React Router links
+
+#### Document Workflows
+- `UploadModal` — drag-and-drop file upload: multi-file, type validation (.pdf/.jpg/.png/.xlsx), simulated progress bars, done state
+- `DocumentDetailPanel` — slide-over showing document metadata, activity history, Classify / Download / Delete actions
+- `ClassificationFlow` — 4-step classification wizard (Type → Vendor → Date → Confirm) with AI confidence suggestions and one-click apply
+
+#### Notification Center
+- `NotificationBell` — TopBar bell replaced with live badge showing unread count
+- `NotificationCenter` — dropdown tray: mark-all-read, per-notification dismiss, unread dot indicators
+
+#### Report Generation
+- `ReportWizard` — 4-step generation wizard (Type → Period → Accounts → Generate) with animated progress bar and download CTA
+
+#### Bank Matching
+- `BankTransactionDetail` — slide-over for pending transactions: Confirm Match, Enter Manually (form), Flag for Review actions
+
+#### Hooks
+- `useLocalStorage` — generic typed React hook for localStorage persistence
+
+### Changed
+- `Documents` page — replaced static tab buttons with generic `Tabs` component; added `UploadModal` wired to Upload button; row click opens `DocumentDetailPanel`; `EmptyState` for empty results
+- `Reports` page — Generate Report button opens `ReportWizard`
+- `BankMatching` page — pending transaction rows open `BankTransactionDetail` slide-over
+- `TopBar` — static bell replaced with `NotificationBell` component
+
+### Project
+- `PROJECT_BIBLE.md` created — authoritative product spec and sprint plan for all future agents
+
+---
+
 ## [0.1.0] — Sprint 1: Foundation — 2025-07-16
 
 ### Added
 - **Project scaffold** — Vite + React 18 + TypeScript, Tailwind CSS v3, React Router v6
-- **Design system tokens** — Gold palette (50–900), ink colours, surface colours, shadow scale, font families (Inter + Playfair Display)
-- **Global CSS** — Font imports, scrollbar styling, `gold-divider`, `nav-link` / `nav-link.active` utilities
+- **Design system tokens** — Gold palette, ink colours, surface, shadow scale, font families (Inter + Playfair Display)
+- **Global CSS** — Font imports, scrollbar styling, utility classes
 
 #### Layout
-- `TopBar` — TAJ logo, expandable global search, primary navigation links, notification bell, user dropdown menu
-- `AppShell` — Sticky top bar, full-width content area, AI Companion always mounted
+- `TopBar` — TAJ logo, expandable global search, primary navigation, notification bell, user dropdown
+- `AppShell` — Sticky top bar, content area, AI Companion always mounted
 
-#### UI Components (Design System)
-- `Button` — variants: primary / secondary / ghost / danger; sizes: sm / md / lg; loading state; icon support
-- `Card` + `CardHeader` — hover variant, padding scale (none / sm / md / lg)
-- `Input` — label, error, hint, leading icon, trailing icon
-- `Badge` — variants: default / gold / success / warning / danger / info; dot indicator
-- `Table` — generic typed columns, empty state, row click handler
-- `Dialog` — keyboard dismiss (Escape), backdrop click, size variants, accessible aria attributes
-- `Typography` — `PageTitle`, `SectionTitle`, `Lead`, `Caption`, `GoldText`
+#### UI Components
+- `Button` — primary / secondary / ghost / danger; sm/md/lg; loading state
+- `Card` + `CardHeader`
+- `Input` — label, error, hint, leading/trailing icon
+- `Badge` — 6 variants, dot indicator
+- `Table` — generic typed columns, empty state, row click
+- `Dialog` — Escape/backdrop dismiss, size variants, accessible
+- `Typography` — PageTitle, SectionTitle, Lead, Caption, GoldText
 
 #### Pages
-- **Dashboard** (`/`) — Launchpad grid (6 cards: Documents, Unclassified, Bank Matching, Reports, AI Assistant, Settings), Recent Activity feed, AI Suggestions panel
-- **Documents** (`/documents`) — Tab filtering, search, document table with type/status badges
-- **Reports** (`/reports`) — Stats row, report list with download actions, generate button
-- **Bank Matching** (`/bank-matching`) — Statement cards with progress bars, pending-transaction review panel
-- **AI** (`/ai`) — Capability cards (active / coming soon), stats counters
-- **Settings** (`/settings`) — Sidebar navigation; General, AI & Automation, Notifications, Appearance panels with live toggles
-- **Design System** (`/design-system`) — Full component showcase: colours, typography, buttons, badges, inputs, table, dialog, spacing
+- Dashboard — Launchpad (6 cards), Recent Activity, AI Suggestions
+- Documents, Reports, Bank Matching, AI, Settings, Design System
 
 #### AI Companion
-- Floating gold button (bottom-right)
-- Chat panel — mock responses based on keyword matching
-- Controlled by Settings context (`aiCompanionEnabled`)
-- Never navigates away from current page
-
-#### Context
-- `SettingsContext` — `aiCompanionEnabled` state shared across app
-
-### Infrastructure
-- `tailwind.config.js` — extended theme with custom colour tokens
-- `postcss.config.js` — Tailwind + Autoprefixer
-- `vite.config.ts` — React plugin, sourcemaps
-- `public/favicon.svg` — Gold-T mark
+- Floating gold button, chat panel, mock responses, Settings toggle
