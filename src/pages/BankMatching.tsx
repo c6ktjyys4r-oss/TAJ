@@ -4,25 +4,66 @@ import { PageTitle } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
+import { SortableTable } from '../components/ui/SortableTable';
+import { AnimatedCounter } from '../components/ui/AnimatedCounter';
 import { BankTransactionDetail } from '../components/banking/BankTransactionDetail';
 import type { PendingTransaction } from '../components/banking/BankTransactionDetail';
 
 const STATEMENTS = [
   { id: '1', bank: 'SABB',       month: 'October 2024',   total: 247, matched: 244, pending: 3,  matchRate: 98.8 },
-  { id: '2', bank: 'Riyad Bank', month: 'October 2024',   total: 183, matched: 183, pending: 0,  matchRate: 100 },
+  { id: '2', bank: 'Riyad Bank', month: 'October 2024',   total: 183, matched: 183, pending: 0,  matchRate: 100  },
   { id: '3', bank: 'Al Rajhi',   month: 'October 2024',   total: 312, matched: 298, pending: 14, matchRate: 95.5 },
-  { id: '4', bank: 'SABB',       month: 'September 2024', total: 231, matched: 231, pending: 0,  matchRate: 100 },
+  { id: '4', bank: 'SABB',       month: 'September 2024', total: 231, matched: 231, pending: 0,  matchRate: 100  },
 ];
 
-const PENDING: PendingTransaction[] = [
-  { id: 'T1', date: '2024-10-12', description: 'Wire Transfer — Unknown',  amount: 'SAR 45,200', bank: 'SABB', suggestion: 'Possible: Invoice #INV-0881' },
-  { id: 'T2', date: '2024-10-10', description: 'Direct Debit — Utilities', amount: 'SAR 3,750',  bank: 'SABB', suggestion: 'No match found' },
-  { id: 'T3', date: '2024-10-08', description: 'FX Conversion USD/SAR',    amount: 'SAR 18,900', bank: 'SABB', suggestion: 'Possible: Contract #CTR-044' },
+interface TxRow extends PendingTransaction { [key: string]: unknown; }
+
+const PENDING: TxRow[] = [
+  { id: 'T1', date: '2024-10-12', description: 'Wire Transfer — Unknown',  amount: 'SAR 45,200', bank: 'SABB',      suggestion: 'Possible: Invoice #INV-0881' },
+  { id: 'T2', date: '2024-10-10', description: 'Direct Debit — Utilities', amount: 'SAR 3,750',  bank: 'SABB',      suggestion: 'No match found' },
+  { id: 'T3', date: '2024-10-08', description: 'FX Conversion USD/SAR',    amount: 'SAR 18,900', bank: 'SABB',      suggestion: 'Possible: Contract #CTR-044' },
+  { id: 'T4', date: '2024-10-05', description: 'Supplier Payment',         amount: 'SAR 9,100',  bank: 'Al Rajhi', suggestion: 'Possible: Invoice #INV-0876' },
+  { id: 'T5', date: '2024-10-03', description: 'Cheque Clearance',         amount: 'SAR 22,400', bank: 'Al Rajhi', suggestion: 'No match found' },
 ];
 
 export const BankMatching: React.FC = () => {
-  const [syncing, setSyncing] = useState(false);
+  const [syncing, setSyncing]       = useState(false);
   const [selectedTx, setSelectedTx] = useState<PendingTransaction | null>(null);
+
+  const columns = [
+    {
+      key: 'description', header: 'Transaction', sortable: true,
+      render: (r: TxRow) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+            <AlertCircle size={15} className="text-amber-600" />
+          </div>
+          <div>
+            <p className="text-sm font-medium text-ink-primary">{r.description}</p>
+            <p className="text-xs text-ink-muted italic mt-0.5">{r.suggestion}</p>
+          </div>
+        </div>
+      ),
+    },
+    { key: 'bank',   header: 'Bank',   sortable: true,
+      render: (r: TxRow) => <Badge variant="default">{r.bank}</Badge> },
+    { key: 'date',   header: 'Date',   sortable: true, align: 'right' as const },
+    { key: 'amount', header: 'Amount', sortable: true, align: 'right' as const,
+      render: (r: TxRow) => <span className="font-semibold text-ink-primary">{r.amount}</span> },
+    {
+      key: 'action', header: '', sortable: false, align: 'right' as const,
+      render: (r: TxRow) => (
+        <Button
+          variant="secondary" size="sm"
+          onClick={(e) => { e.stopPropagation(); setSelectedTx(r as PendingTransaction); }}
+        >
+          Review
+        </Button>
+      ),
+    },
+  ];
+
+  const totalPending = STATEMENTS.reduce((s, st) => s + st.pending, 0);
 
   return (
     <>
@@ -41,7 +82,24 @@ export const BankMatching: React.FC = () => {
           </Button>
         </div>
 
-        {/* Statement cards */}
+        {/* Animated summary stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Transactions', value: STATEMENTS.reduce((s, st) => s + st.total, 0),    color: 'text-ink-primary bg-gray-50' },
+            { label: 'Matched',            value: STATEMENTS.reduce((s, st) => s + st.matched, 0),  color: 'text-emerald-600 bg-emerald-50' },
+            { label: 'Pending Review',     value: totalPending, color: 'text-amber-600 bg-amber-50' },
+            { label: 'Avg Match Rate',     value: 98, suffix: '%', color: 'text-gold-600 bg-gold-50' },
+          ].map(({ label, value, color, suffix }) => (
+            <Card key={label} padding="md">
+              <div className={`text-2xl font-bold font-serif mb-0.5 ${color.split(' ')[0]}`}>
+                <AnimatedCounter target={value} suffix={suffix} />
+              </div>
+              <p className="text-xs text-ink-muted">{label}</p>
+            </Card>
+          ))}
+        </div>
+
+        {/* Statement progress cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {STATEMENTS.map((stmt) => (
             <Card key={stmt.id} padding="md" hover>
@@ -54,15 +112,12 @@ export const BankMatching: React.FC = () => {
                   {stmt.matchRate}% matched
                 </Badge>
               </div>
-
-              {/* Progress bar */}
               <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mb-3">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-gold-400 to-gold-600 transition-all duration-500"
                   style={{ width: `${stmt.matchRate}%` }}
                 />
               </div>
-
               <div className="flex gap-4 text-sm">
                 <span className="flex items-center gap-1 text-emerald-600">
                   <CheckCircle size={13} /> {stmt.matched} matched
@@ -78,7 +133,7 @@ export const BankMatching: React.FC = () => {
           ))}
         </div>
 
-        {/* Pending transactions */}
+        {/* Sortable pending transactions */}
         <Card padding="none">
           <div className="flex items-center justify-between p-4 border-b border-border">
             <div>
@@ -86,29 +141,13 @@ export const BankMatching: React.FC = () => {
               <p className="text-xs text-ink-muted mt-0.5">{PENDING.length} transactions need manual attention</p>
             </div>
           </div>
-          <div className="divide-y divide-border/60">
-            {PENDING.map((tx) => (
-              <div
-                key={tx.id}
-                className="flex items-center gap-4 px-4 py-4 hover:bg-gold-50 transition-colors cursor-pointer"
-                onClick={() => setSelectedTx(tx)}
-              >
-                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
-                  <AlertCircle size={16} className="text-amber-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink-primary">{tx.description}</p>
-                  <p className="text-xs text-ink-muted mt-0.5">
-                    {tx.bank} · {tx.date} · <span className="italic">{tx.suggestion}</span>
-                  </p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-semibold text-ink-primary">{tx.amount}</p>
-                  <p className="text-xs text-gold-600 mt-1 font-medium">Click to review</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          <SortableTable<TxRow>
+            columns={columns}
+            data={PENDING}
+            keyExtractor={(r) => r.id}
+            onRowClick={(r) => setSelectedTx(r as PendingTransaction)}
+            defaultSort={{ key: 'date', dir: 'desc' }}
+          />
         </Card>
       </div>
 

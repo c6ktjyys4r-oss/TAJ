@@ -16,30 +16,31 @@ import { SortableTable } from '../components/ui/SortableTable';
 import { UploadModal } from '../components/documents/UploadModal';
 import { DocumentDetailPanel } from '../components/documents/DocumentDetailPanel';
 import type { DocumentRecord } from '../components/documents/DocumentDetailPanel';
+import { BatchClassifyBar } from '../components/documents/BatchClassifyBar';
 
 const RAW_DOCS: DocumentRecord[] = [
-  { id: '1',  name: 'Invoice_AlRajhi_Oct2024.pdf',   type: 'Invoice',   status: 'Classified',   size: '234 KB', date: '2024-10-15', vendor: 'Al Rajhi Cement' },
-  { id: '2',  name: 'SABB_Statement_Oct2024.pdf',    type: 'Statement', status: 'Needs Review', size: '1.2 MB', date: '2024-10-14', vendor: 'SABB' },
-  { id: '3',  name: 'Receipt_0893.jpg',              type: 'Receipt',   status: 'Unclassified', size: '156 KB', date: '2024-10-14', vendor: '—' },
-  { id: '4',  name: 'Invoice_Suppliers_Sep2024.xlsx',type: 'Invoice',   status: 'Classified',   size: '87 KB',  date: '2024-10-13', vendor: 'Multiple' },
-  { id: '5',  name: 'Contract_2024_Q4.pdf',          type: 'Contract',  status: 'Classified',   size: '678 KB', date: '2024-10-12', vendor: 'Ministry of Finance' },
-  { id: '6',  name: 'Receipt_Travel_Oct.jpg',        type: 'Receipt',   status: 'Unclassified', size: '202 KB', date: '2024-10-11', vendor: '—' },
-  { id: '7',  name: 'Riyad_Statement_Sep2024.pdf',   type: 'Statement', status: 'Classified',   size: '980 KB', date: '2024-10-10', vendor: 'Riyad Bank' },
-  { id: '8',  name: 'Invoice_NCB_Sep2024.pdf',       type: 'Invoice',   status: 'Classified',   size: '312 KB', date: '2024-09-28', vendor: 'NCB' },
-  { id: '9',  name: 'Receipt_Office_Sep.jpg',        type: 'Receipt',   status: 'Unclassified', size: '98 KB',  date: '2024-09-25', vendor: '—' },
-  { id: '10', name: 'AlRajhi_Statement_Sep2024.pdf', type: 'Statement', status: 'Classified',   size: '1.1 MB', date: '2024-09-20', vendor: 'Al Rajhi Bank' },
-  { id: '11', name: 'Invoice_Contractor_Sep.pdf',    type: 'Invoice',   status: 'Needs Review', size: '445 KB', date: '2024-09-18', vendor: 'Unknown' },
-  { id: '12', name: 'Contract_Q3_Audit.pdf',         type: 'Contract',  status: 'Classified',   size: '2.1 MB', date: '2024-09-01', vendor: 'KPMG Arabia' },
+  { id: '1',  name: 'Invoice_AlRajhi_Oct2024.pdf',    type: 'Invoice',   status: 'Classified',   size: '234 KB', date: '2024-10-15', vendor: 'Al Rajhi Cement' },
+  { id: '2',  name: 'SABB_Statement_Oct2024.pdf',     type: 'Statement', status: 'Needs Review', size: '1.2 MB', date: '2024-10-14', vendor: 'SABB' },
+  { id: '3',  name: 'Receipt_0893.jpg',               type: 'Receipt',   status: 'Unclassified', size: '156 KB', date: '2024-10-14', vendor: '—' },
+  { id: '4',  name: 'Invoice_Suppliers_Sep2024.xlsx', type: 'Invoice',   status: 'Classified',   size: '87 KB',  date: '2024-10-13', vendor: 'Multiple' },
+  { id: '5',  name: 'Contract_2024_Q4.pdf',           type: 'Contract',  status: 'Classified',   size: '678 KB', date: '2024-10-12', vendor: 'Ministry of Finance' },
+  { id: '6',  name: 'Receipt_Travel_Oct.jpg',         type: 'Receipt',   status: 'Unclassified', size: '202 KB', date: '2024-10-11', vendor: '—' },
+  { id: '7',  name: 'Riyad_Statement_Sep2024.pdf',    type: 'Statement', status: 'Classified',   size: '980 KB', date: '2024-10-10', vendor: 'Riyad Bank' },
+  { id: '8',  name: 'Invoice_NCB_Sep2024.pdf',        type: 'Invoice',   status: 'Classified',   size: '312 KB', date: '2024-09-28', vendor: 'NCB' },
+  { id: '9',  name: 'Receipt_Office_Sep.jpg',         type: 'Receipt',   status: 'Unclassified', size: '98 KB',  date: '2024-09-25', vendor: '—' },
+  { id: '10', name: 'AlRajhi_Statement_Sep2024.pdf',  type: 'Statement', status: 'Classified',   size: '1.1 MB', date: '2024-09-20', vendor: 'Al Rajhi Bank' },
+  { id: '11', name: 'Invoice_Contractor_Sep.pdf',     type: 'Invoice',   status: 'Needs Review', size: '445 KB', date: '2024-09-18', vendor: 'Unknown' },
+  { id: '12', name: 'Contract_Q3_Audit.pdf',          type: 'Contract',  status: 'Classified',   size: '2.1 MB', date: '2024-09-01', vendor: 'KPMG Arabia' },
 ];
 
 const PAGE_SIZE = 8;
 
 const TABS = [
-  { value: 'all',          label: 'All',        count: RAW_DOCS.length },
+  { value: 'all',          label: 'All',          count: RAW_DOCS.length },
   { value: 'unclassified', label: 'Unclassified', count: RAW_DOCS.filter((d) => d.status === 'Unclassified').length },
-  { value: 'invoices',     label: 'Invoices',   count: RAW_DOCS.filter((d) => d.type === 'Invoice').length },
-  { value: 'receipts',     label: 'Receipts',   count: RAW_DOCS.filter((d) => d.type === 'Receipt').length },
-  { value: 'statements',   label: 'Statements', count: RAW_DOCS.filter((d) => d.type === 'Statement').length },
+  { value: 'invoices',     label: 'Invoices',     count: RAW_DOCS.filter((d) => d.type === 'Invoice').length },
+  { value: 'receipts',     label: 'Receipts',     count: RAW_DOCS.filter((d) => d.type === 'Receipt').length },
+  { value: 'statements',   label: 'Statements',   count: RAW_DOCS.filter((d) => d.type === 'Statement').length },
 ] as const;
 type TabValue = typeof TABS[number]['value'];
 
@@ -78,37 +79,58 @@ function FileIcon({ type }: { type: string }) {
 }
 
 export const Documents: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<TabValue>('all');
-  const [uploadOpen, setUploadOpen] = useState(false);
+  const [activeTab, setActiveTab]     = useState<TabValue>('all');
+  const [uploadOpen, setUploadOpen]   = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocumentRecord | null>(null);
-  const [filters, setFilters] = useState<FilterState>({});
-  const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  const [page, setPage] = useState(1);
+  const [filters, setFilters]         = useState<FilterState>({});
+  const [dateRange, setDateRange]     = useState<DateRange | null>(null);
+  const [page, setPage]               = useState(1);
+  const [selected, setSelected]       = useState<Set<string>>(new Set());
 
-  const filtered = useMemo(() => {
-    return DOCS.filter((d) => {
-      const tabMatch =
-        activeTab === 'all'          ? true :
-        activeTab === 'unclassified' ? d.status === 'Unclassified' :
-        activeTab === 'invoices'     ? d.type === 'Invoice' :
-        activeTab === 'receipts'     ? d.type === 'Receipt' :
-        activeTab === 'statements'   ? d.type === 'Statement' : true;
+  const filtered = useMemo(() => DOCS.filter((d) => {
+    const tabMatch =
+      activeTab === 'all'          ? true :
+      activeTab === 'unclassified' ? d.status === 'Unclassified' :
+      activeTab === 'invoices'     ? d.type === 'Invoice' :
+      activeTab === 'receipts'     ? d.type === 'Receipt' :
+      activeTab === 'statements'   ? d.type === 'Statement' : true;
 
-      const statusMatch = !filters.status?.length || filters.status.includes(d.status);
-      const typeMatch   = !filters.type?.length   || filters.type.includes(d.type);
-      const dateMatch   = !dateRange || (d.date >= dateRange.from && d.date <= dateRange.to);
+    const statusMatch = !filters.status?.length || filters.status.includes(d.status);
+    const typeMatch   = !filters.type?.length   || filters.type.includes(d.type);
+    const dateMatch   = !dateRange || (d.date >= dateRange.from && d.date <= dateRange.to);
 
-      return tabMatch && statusMatch && typeMatch && dateMatch;
-    });
-  }, [activeTab, filters, dateRange]);
+    return tabMatch && statusMatch && typeMatch && dateMatch;
+  }), [activeTab, filters, dateRange]);
 
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const handleTabChange = (tab: TabValue) => { setActiveTab(tab); setPage(1); };
-  const handleFilterChange = (f: FilterState) => { setFilters(f); setPage(1); };
+  const handleTabChange    = (tab: TabValue)    => { setActiveTab(tab); setPage(1); setSelected(new Set()); };
+  const handleFilterChange = (f: FilterState)   => { setFilters(f); setPage(1); };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const columns = [
+    {
+      key: 'select', header: '', sortable: false,
+      render: (row: Doc) => (
+        <input
+          type="checkbox"
+          checked={selected.has(row.id)}
+          onChange={() => toggleSelect(row.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-4 h-4 accent-gold-500 cursor-pointer rounded"
+          aria-label={`Select ${row.name}`}
+        />
+      ),
+      className: 'w-8',
+    },
     {
       key: 'name', header: 'Document', sortable: true,
       render: (row: Doc) => (
@@ -147,7 +169,10 @@ export const Documents: React.FC = () => {
         <Card padding="none">
           {/* Toolbar */}
           <div className="flex items-center gap-3 p-4 border-b border-border flex-wrap">
-            <DateRangePicker value={dateRange} onChange={(r) => { setDateRange(r); setPage(1); }} />
+            <DateRangePicker
+              value={dateRange}
+              onChange={(r) => { setDateRange(r); setPage(1); }}
+            />
             <FilterPanel
               groups={FILTER_GROUPS}
               value={filters}
@@ -161,6 +186,11 @@ export const Documents: React.FC = () => {
               >
                 Clear all filters
               </button>
+            )}
+            {selected.size > 0 && (
+              <span className="ml-auto text-xs text-gold-600 font-medium">
+                {selected.size} selected
+              </span>
             )}
           </div>
 
@@ -194,6 +224,15 @@ export const Documents: React.FC = () => {
 
       <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
       <DocumentDetailPanel doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+
+      {/* Batch classify floating bar */}
+      {selected.size > 0 && (
+        <BatchClassifyBar
+          count={selected.size}
+          onClear={() => setSelected(new Set())}
+          onClassify={() => setSelected(new Set())}
+        />
+      )}
     </>
   );
 };
