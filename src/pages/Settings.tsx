@@ -49,6 +49,7 @@ export const Settings: React.FC = () => {
     notificationsEmail, setNotificationsEmail,
     notificationsPush,  setNotificationsPush,
     notificationsDigest, setNotificationsDigest,
+    isRTL, setIsRTL,
   } = useSettings();
   const { supported: notifSupported, permission, requestPermission, notify } = useNotifications();
   const [saved, setSaved] = useState(false);
@@ -211,6 +212,14 @@ export const Settings: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-xs text-ink-muted">Dark mode is not available in this version.</p>
+                <div className="pt-2 border-t border-border/60">
+                  <Toggle
+                    label="Arabic (RTL) layout"
+                    hint="Switch the interface to right-to-left for Arabic users"
+                    checked={isRTL}
+                    onChange={setIsRTL}
+                  />
+                </div>
               </div>
             </Card>
           )}

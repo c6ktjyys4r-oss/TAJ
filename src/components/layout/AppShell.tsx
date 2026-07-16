@@ -6,6 +6,7 @@ import { AICompanion } from '../ai/AICompanion';
 import { ShortcutsButton } from '../ui/KeyboardShortcuts';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
 import { OfflineBanner } from '../pwa/OfflineBanner';
+import { UpdateBanner } from '../pwa/UpdateBanner';
 
 export const AppShell: React.FC = () => {
   const navigate = useNavigate();
@@ -60,6 +61,7 @@ export const AppShell: React.FC = () => {
       <AICompanion />
       <ShortcutsButton />
       <OnboardingTour />
+      <UpdateBanner />
     </div>
   );
 };

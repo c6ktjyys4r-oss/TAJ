@@ -45,3 +45,31 @@ export const SkeletonTable = ({ rows = 5, cols = 5 }: { rows?: number; cols?: nu
     ))}
   </div>
 );
+
+/** Full-page skeleton — used as Suspense fallback during code-split page loads */
+export const SkeletonPage = () => (
+  <div className="min-h-screen bg-white">
+    {/* Top bar placeholder */}
+    <div className="h-[57px] border-b border-border bg-white flex items-center px-6 gap-4">
+      <Skeleton className="w-7 h-7 rounded-lg" />
+      <Skeleton className="w-24 h-4" />
+      <div className="flex-1" />
+      <Skeleton className="w-52 h-8 rounded-lg" />
+      <div className="flex-1" />
+      <Skeleton className="w-8 h-8 rounded-full" />
+    </div>
+    {/* Page content placeholder */}
+    <div className="max-w-7xl mx-auto px-6 py-8 space-y-6">
+      <Skeleton className="w-48 h-7" />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <SkeletonCard />
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+      <div className="bg-white border border-border rounded-xl">
+        <div className="p-4 border-b border-border"><Skeleton className="w-32 h-4" /></div>
+        <SkeletonTable rows={6} />
+      </div>
+    </div>
+  </div>
+);

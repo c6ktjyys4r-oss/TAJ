@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 
 interface Settings {
@@ -10,6 +10,8 @@ interface Settings {
   setNotificationsPush: (val: boolean) => void;
   notificationsDigest: boolean;
   setNotificationsDigest: (val: boolean) => void;
+  isRTL: boolean;
+  setIsRTL: (val: boolean) => void;
 }
 
 const SettingsContext = createContext<Settings>({
@@ -21,13 +23,22 @@ const SettingsContext = createContext<Settings>({
   setNotificationsPush: () => {},
   notificationsDigest: true,
   setNotificationsDigest: () => {},
+  isRTL: false,
+  setIsRTL: () => {},
 });
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [aiCompanionEnabled, setAiCompanionEnabled] = useLocalStorage<boolean>('taj_ai_companion', true);
-  const [notificationsEmail, setNotificationsEmail] = useLocalStorage<boolean>('taj_notif_email', true);
-  const [notificationsPush,  setNotificationsPush]  = useLocalStorage<boolean>('taj_notif_push',  false);
+  const [aiCompanionEnabled,  setAiCompanionEnabled]  = useLocalStorage<boolean>('taj_ai_companion', true);
+  const [notificationsEmail,  setNotificationsEmail]  = useLocalStorage<boolean>('taj_notif_email',  true);
+  const [notificationsPush,   setNotificationsPush]   = useLocalStorage<boolean>('taj_notif_push',   false);
   const [notificationsDigest, setNotificationsDigest] = useLocalStorage<boolean>('taj_notif_digest', true);
+  const [isRTL,               setIsRTL]               = useLocalStorage<boolean>('taj_rtl',          false);
+
+  // Apply RTL direction to document root
+  useEffect(() => {
+    document.documentElement.dir  = isRTL ? 'rtl' : 'ltr';
+    document.documentElement.lang = isRTL ? 'ar'  : 'en';
+  }, [isRTL]);
 
   return (
     <SettingsContext.Provider value={{
@@ -35,6 +46,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       notificationsEmail, setNotificationsEmail,
       notificationsPush,  setNotificationsPush,
       notificationsDigest, setNotificationsDigest,
+      isRTL, setIsRTL,
     }}>
       {children}
     </SettingsContext.Provider>
