@@ -7,61 +7,57 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.3.0] — Sprint 3: Data & Filters — 2025-07-16
+## [0.4.0] — Sprint 4: Polish & Advanced UX — 2025-07-16
 
 ### Added
 
-#### New UI Primitives
-- `Skeleton` / `SkeletonText` / `SkeletonCard` / `SkeletonRow` / `SkeletonTable` — animated loading placeholders
-- `Pagination` — smart ellipsis page buttons with item-count label, prev/next
-- `DateRangePicker` — preset buttons (this month / 3 months / quarter / year) + custom from/to date inputs, clear button
-- `FilterPanel` — collapsible multi-select filter groups with active count badge and clear-all
-- `SortableTable<T>` — generic table with click-header sort (asc/desc), sort icons, full keyboard-accessible
-- `AnimatedCounter` — RAF-driven ease-out-cubic counter animation with prefix / suffix / decimals
-- `ExportButton` — CSV / XLSX mock download dropdown with done-state feedback
+#### Keyboard Navigation
+- `KeyboardShortcuts` — overlay with full shortcut reference (press `?` to open/close)
+- `ShortcutsButton` — fixed bottom-left trigger, always mounted in AppShell
+- `AppShell` — global `g+d/o/r/b/s` navigation shortcuts (go to Dashboard/Documents/Reports/Bank/Settings)
 
-#### Global Search
-- `GlobalSearch` — full-screen overlay activated via search bar (Cmd+K visual hint)
-- Keyboard navigation: ↑↓ arrows, Enter to navigate, Esc to close
-- Full-text search across documents, reports, and transactions
-- Quick-jump shortcuts for major sections
-- No-results state with query echo
+#### Spend Chart
+- `SpendChart` — SVG sparklines per spend category (cubic bezier path, translucent fill + stroke), mounted in Dashboard
+
+#### Batch Classify
+- `BatchClassifyBar` — floating selection bar: type dropdown classify, done-state feedback, clear selection
+- Documents page gains checkbox column + multi-select state; bar appears when any row selected
 
 ### Changed
-- `TopBar` — inline search input replaced with overlay trigger button (opens GlobalSearch)
-- `Documents` — upgraded from basic `Table` to `SortableTable`; added `FilterPanel`, `DateRangePicker`, `Pagination`, `ExportButton`; total/filtered count shown in header
-- `Dashboard` — new animated stats strip (4 counters: Total, Classified %, This Month, Match Rate)
+- `Dashboard` — 3-column bottom row: Activity + AI Suggestions + SpendChart
+- `Reports` — `SortableTable` + `FilterPanel` (type/status) + `AnimatedCounter` stats + `ExportButton`
+- `BankMatching` — `SortableTable` for pending transactions (sort by date/amount/bank) + `AnimatedCounter` stats + Review button per row
+- `AppShell` — `ShortcutsButton` mounted at shell level; keyboard nav shortcuts registered globally
+
+---
+
+## [0.3.0] — Sprint 3: Data & Filters — 2025-07-16
+
+### Added
+- `Skeleton` family, `Pagination`, `DateRangePicker`, `FilterPanel`, `SortableTable`, `AnimatedCounter`, `ExportButton`
+- `GlobalSearch` — Cmd+K overlay, keyboard nav (↑↓ Enter Esc), full-text + quick jump
+
+### Changed
+- `TopBar` — search trigger opens GlobalSearch
+- `Documents` — SortableTable, FilterPanel, DateRangePicker, Pagination, ExportButton
+- `Dashboard` — animated stats strip
 
 ---
 
 ## [0.2.0] — Sprint 2: Core Workflows — 2025-07-16
 
 ### Added
-
-#### New UI Primitives
 - `Tooltip`, `EmptyState`, `ProgressBar`, `StepIndicator`, `Tabs`, `SlideOver`, `Breadcrumbs`
-
-#### Document Workflows
 - `UploadModal`, `DocumentDetailPanel`, `ClassificationFlow`
-
-#### Notification Center
-- `NotificationBell`, `NotificationCenter` tray
-
-#### Report Generation
+- `NotificationBell` + `NotificationCenter` tray
 - `ReportWizard`
-
-#### Bank Matching
 - `BankTransactionDetail`
-
-#### Hooks
 - `useLocalStorage`
+- `PROJECT_BIBLE.md`
 
 ### Changed
-- `Documents`, `Reports`, `BankMatching` pages — wired to Sprint 2 components
-- `TopBar` — static bell → `NotificationBell`
-
-### Project
-- `PROJECT_BIBLE.md` created
+- Documents, Reports, BankMatching pages wired to Sprint 2 components
+- TopBar: static bell → `NotificationBell`
 
 ---
 
@@ -69,7 +65,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Vite + React 18 + TypeScript, Tailwind CSS v3, React Router v6
-- Design tokens — gold palette, ink colours, shadows, fonts (Inter + Playfair Display)
+- Design tokens — gold palette, ink colours, shadows, fonts
 - Layout: `TopBar`, `AppShell`
 - UI: `Button`, `Card`, `Input`, `Badge`, `Table`, `Dialog`, `Typography`
 - Pages: Dashboard, Documents, Reports, Bank Matching, AI, Settings, Design System

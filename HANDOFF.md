@@ -1,7 +1,7 @@
 # TAJ Finance — Handoff Document
 
 > For any agent or developer picking up this project.
-> Last updated: 2025-07-16 — Sprint 2 complete.
+> Last updated: 2025-07-16 — Sprint 4 complete.
 
 ---
 
@@ -30,39 +30,51 @@ TAJ/
 │   │   └── useLocalStorage.ts              # Generic localStorage hook
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── AppShell.tsx                # Shell: TopBar + Outlet + AI Companion
-│   │   │   └── TopBar.tsx                  # Logo, search, nav, NotificationBell, user menu
+│   │   │   ├── AppShell.tsx                # Shell: TopBar + Outlet + AI + ShortcutsButton + g+X nav
+│   │   │   └── TopBar.tsx                  # Logo, GlobalSearch trigger, nav, NotificationBell, user menu
 │   │   ├── ui/                             # Design system primitives
 │   │   │   ├── Button.tsx
 │   │   │   ├── Card.tsx
 │   │   │   ├── Input.tsx
 │   │   │   ├── Badge.tsx
-│   │   │   ├── Table.tsx
+│   │   │   ├── Table.tsx                   # Basic generic table (use SortableTable for new work)
 │   │   │   ├── Dialog.tsx
 │   │   │   ├── Typography.tsx
-│   │   │   ├── Tooltip.tsx                 # Hover tooltip
-│   │   │   ├── EmptyState.tsx              # Empty state with CTA
-│   │   │   ├── ProgressBar.tsx             # Animated progress bar
-│   │   │   ├── StepIndicator.tsx           # Wizard step indicator
-│   │   │   ├── Tabs.tsx                    # Tab bar (underline + pill)
-│   │   │   ├── SlideOver.tsx               # Animated right panel
-│   │   │   └── Breadcrumbs.tsx             # Breadcrumb nav
+│   │   │   ├── Tooltip.tsx
+│   │   │   ├── EmptyState.tsx
+│   │   │   ├── ProgressBar.tsx
+│   │   │   ├── StepIndicator.tsx
+│   │   │   ├── Tabs.tsx
+│   │   │   ├── SlideOver.tsx
+│   │   │   ├── Breadcrumbs.tsx
+│   │   │   ├── Skeleton.tsx                # Loading states
+│   │   │   ├── Pagination.tsx              # Smart ellipsis pagination
+│   │   │   ├── DateRangePicker.tsx         # Preset + custom date range
+│   │   │   ├── FilterPanel.tsx             # Multi-select filter groups
+│   │   │   ├── SortableTable.tsx           # Click-header sort, generic typed
+│   │   │   ├── AnimatedCounter.tsx         # RAF counter with easing
+│   │   │   ├── ExportButton.tsx            # CSV/XLSX mock export
+│   │   │   └── KeyboardShortcuts.tsx       # ? overlay + ShortcutsButton
 │   │   ├── ai/
-│   │   │   └── AICompanion.tsx             # Floating chat assistant
+│   │   │   └── AICompanion.tsx
 │   │   ├── banking/
-│   │   │   └── BankTransactionDetail.tsx   # TX detail slide-over
+│   │   │   └── BankTransactionDetail.tsx
 │   │   ├── dashboard/
 │   │   │   ├── LaunchpadCard.tsx
 │   │   │   ├── RecentActivity.tsx
-│   │   │   └── AISuggestions.tsx
+│   │   │   ├── AISuggestions.tsx
+│   │   │   └── SpendChart.tsx              # SVG sparklines by category
 │   │   ├── documents/
-│   │   │   ├── UploadModal.tsx             # Drag & drop upload
-│   │   │   ├── DocumentDetailPanel.tsx     # Doc detail slide-over
-│   │   │   └── ClassificationFlow.tsx      # 4-step classify wizard
+│   │   │   ├── UploadModal.tsx
+│   │   │   ├── DocumentDetailPanel.tsx
+│   │   │   ├── ClassificationFlow.tsx
+│   │   │   └── BatchClassifyBar.tsx        # Multi-select floating action bar
 │   │   ├── notifications/
-│   │   │   └── NotificationCenter.tsx      # Bell + notification tray
-│   │   └── reports/
-│   │       └── ReportWizard.tsx            # 4-step report generation
+│   │   │   └── NotificationCenter.tsx
+│   │   ├── reports/
+│   │   │   └── ReportWizard.tsx
+│   │   └── search/
+│   │       └── GlobalSearch.tsx            # Cmd+K overlay
 │   └── pages/
 │       ├── Dashboard.tsx
 │       ├── Documents.tsx
@@ -86,36 +98,38 @@ TAJ/
 
 ## Key decisions
 
-1. **All data is mock/static.** No backend or DB in Sprint 1–2. Every list is hardcoded in components.
+1. **All data is mock/static.** No backend or DB. Every list is hardcoded in components.
 2. **SettingsContext** controls AI companion. Toggled from Settings > AI & Automation.
 3. **Design tokens in `tailwind.config.js`** — gold shades, ink, surface, shadows, font families.
 4. **Playfair Display** for all headings/titles. **Inter** for body text.
 5. **No dark mode.** Excluded from scope by PROJECT_BIBLE.
-6. **SlideOver** used for all detail panels (DocumentDetailPanel, BankTransactionDetail). Dialog for wizards.
+6. **SlideOver** used for detail panels. **Dialog** for wizards/modals.
 7. **verbatimModuleSyntax** is enabled — always use `import type` for type-only imports.
+8. **SortableTable** is preferred over basic Table for all new list UIs.
+9. **Keyboard shortcuts** are registered in AppShell (g+X) and in ShortcutsButton (?) via native event listeners.
 
 ---
 
 ## Active routes
 
-| Path             | Component      | Notes                          |
-|------------------|----------------|--------------------------------|
-| `/`              | Dashboard      | Launchpad + feeds              |
-| `/documents`     | Documents      | Upload, detail panel, classify |
-| `/reports`       | Reports        | Wizard on Generate button      |
-| `/bank-matching` | BankMatching   | TX detail on row click         |
-| `/ai`            | AI             | Capability cards               |
-| `/settings`      | Settings       | AI toggle, appearance          |
-| `/design-system` | DesignSystem   | Dev reference only             |
+| Path             | Component      | Notes                                        |
+|------------------|----------------|----------------------------------------------|
+| `/`              | Dashboard      | Launchpad, animated stats, SpendChart        |
+| `/documents`     | Documents      | Full filters, batch classify, upload, detail |
+| `/reports`       | Reports        | SortableTable, filters, wizard               |
+| `/bank-matching` | BankMatching   | SortableTable, TX detail, stats              |
+| `/ai`            | AI             | Capability cards                             |
+| `/settings`      | Settings       | AI toggle, appearance                        |
+| `/design-system` | DesignSystem   | Dev reference only                           |
 
 ---
 
 ## For next agent
 
 1. Read `PROJECT_BIBLE.md` before any sprint.
-2. Check `PROJECT_STATE.md` for current status and deferred work.
-3. All UI primitives are in `src/components/ui/` — extend, never duplicate.
+2. Check `PROJECT_STATE.md` for current status.
+3. All UI primitives live in `src/components/ui/` — use SortableTable (not Table) for new lists.
 4. Use `import type` for type-only imports (verbatimModuleSyntax strict mode).
 5. Run `npm run build` before every commit — 0 errors required.
 6. Update CHANGELOG, PROJECT_STATE, HANDOFF, FILE_INDEX after every sprint.
-7. Commit and push after every milestone — repo is always in resumable state.
+7. Commit and push after every milestone.

@@ -1,7 +1,7 @@
 # FILE_INDEX — TAJ Finance
 
 > Auto-maintained. Update whenever files are added or removed.
-> Last updated: 2025-07-16 — Sprint 3
+> Last updated: 2025-07-16 — Sprint 4
 
 ---
 
@@ -47,10 +47,10 @@
 
 ### src/components/layout/
 
-| File           | Purpose                                               |
-|----------------|-------------------------------------------------------|
-| `AppShell.tsx` | TopBar + content area + AI Companion mount            |
-| `TopBar.tsx`   | Logo, search trigger (GlobalSearch), nav, NotificationBell, user |
+| File           | Purpose                                                       |
+|----------------|---------------------------------------------------------------|
+| `AppShell.tsx` | Shell: TopBar + content + AI + ShortcutsButton + g+X nav     |
+| `TopBar.tsx`   | Logo, GlobalSearch trigger, nav links, NotificationBell, user |
 
 ### src/components/ui/ — Design system primitives
 
@@ -60,7 +60,7 @@
 | `Card.tsx`           | Surface container, CardHeader                    |
 | `Input.tsx`          | Text input, label, error, hint, icons            |
 | `Badge.tsx`          | Colour-coded status with dot                     |
-| `Table.tsx`          | Generic typed data table (basic)                 |
+| `Table.tsx`          | Basic generic table (legacy; prefer SortableTable)|
 | `Dialog.tsx`         | Modal overlay, accessible                        |
 | `Typography.tsx`     | PageTitle, SectionTitle, Lead, Caption, GoldText |
 | `Tooltip.tsx`        | Hover tooltip (top/bottom/left/right)            |
@@ -74,9 +74,10 @@
 | `Pagination.tsx`     | Page buttons with ellipsis and item count        |
 | `DateRangePicker.tsx`| Preset + custom date range picker                |
 | `FilterPanel.tsx`    | Multi-select filter groups with active count     |
-| `SortableTable.tsx`  | Generic sortable table with click-header sort    |
+| `SortableTable.tsx`  | Generic sortable table with click-header sort ⭐ |
 | `AnimatedCounter.tsx`| RAF counter animation (prefix/suffix/decimals)   |
 | `ExportButton.tsx`   | CSV/XLSX mock export dropdown                    |
+| `KeyboardShortcuts.tsx`| ? overlay + ShortcutsButton fixed trigger      |
 
 ### src/components/ai/
 
@@ -92,11 +93,12 @@
 
 ### src/components/dashboard/
 
-| File                  | Purpose                              |
-|-----------------------|--------------------------------------|
-| `LaunchpadCard.tsx`   | Large nav card for Dashboard grid    |
-| `RecentActivity.tsx`  | Activity feed                        |
-| `AISuggestions.tsx`   | AI-driven action prompts             |
+| File                  | Purpose                                        |
+|-----------------------|------------------------------------------------|
+| `LaunchpadCard.tsx`   | Large nav card for Dashboard grid              |
+| `RecentActivity.tsx`  | Activity feed                                  |
+| `AISuggestions.tsx`   | AI-driven action prompts                       |
+| `SpendChart.tsx`      | SVG sparklines + category spend breakdown      |
 
 ### src/components/documents/
 
@@ -105,6 +107,7 @@
 | `UploadModal.tsx`         | Drag & drop upload with progress           |
 | `DocumentDetailPanel.tsx` | Slide-over: metadata, history, classify    |
 | `ClassificationFlow.tsx`  | 4-step classify wizard + AI suggestions    |
+| `BatchClassifyBar.tsx`    | Floating bar for batch-classifying selection|
 
 ### src/components/notifications/
 
@@ -126,15 +129,15 @@
 
 ### src/pages/
 
-| File               | Route            | Purpose                                      |
-|--------------------|------------------|----------------------------------------------|
-| `Dashboard.tsx`    | `/`              | Launchpad, animated stats, activity, AI      |
-| `Documents.tsx`    | `/documents`     | SortableTable, filters, pagination, upload   |
-| `Reports.tsx`      | `/reports`       | List, stats, generate wizard                 |
-| `BankMatching.tsx` | `/bank-matching` | Statement cards, TX detail panel             |
-| `AI.tsx`           | `/ai`            | Capability cards and stats                   |
-| `Settings.tsx`     | `/settings`      | Config, AI companion toggle                  |
-| `DesignSystem.tsx` | `/design-system` | Component showcase (dev reference)           |
+| File               | Route            | Purpose                                         |
+|--------------------|------------------|-------------------------------------------------|
+| `Dashboard.tsx`    | `/`              | Launchpad, animated stats, SpendChart           |
+| `Documents.tsx`    | `/documents`     | SortableTable, filters, pagination, batch       |
+| `Reports.tsx`      | `/reports`       | SortableTable, filters, wizard, export          |
+| `BankMatching.tsx` | `/bank-matching` | SortableTable, TX detail, stats                 |
+| `AI.tsx`           | `/ai`            | Capability cards and stats                      |
+| `Settings.tsx`     | `/settings`      | Config, AI companion toggle                     |
+| `DesignSystem.tsx` | `/design-system` | Component showcase (dev reference)              |
 
 ### public/
 
