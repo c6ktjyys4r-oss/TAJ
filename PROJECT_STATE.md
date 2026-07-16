@@ -1,39 +1,40 @@
 # TAJ Finance — Project State
 
 > Last updated: 2025-07-16
-> Current sprint: **Sprint 2 — Core Workflows** ✅ COMPLETE
+> Current sprint: **Sprint 3 — Data & Filters** ✅ COMPLETE
 
 ---
 
 ## Status
 
-| Area                        | Status    | Notes                                               |
-|-----------------------------|-----------|-----------------------------------------------------|
-| Project scaffold            | ✅ Done   | Vite + React + TS + Tailwind                        |
-| Design system — primitives  | ✅ Done   | Button, Card, Input, Badge, Table, Dialog, Typography |
+| Area                        | Status    | Notes                                                        |
+|-----------------------------|-----------|--------------------------------------------------------------|
+| Project scaffold            | ✅ Done   | Vite + React + TS + Tailwind                                 |
+| Design system — primitives  | ✅ Done   | Button, Card, Input, Badge, Table, Dialog, Typography        |
 | Design system — extended    | ✅ Done   | Tooltip, EmptyState, ProgressBar, StepIndicator, Tabs, SlideOver, Breadcrumbs |
-| Global layout               | ✅ Done   | TopBar + AppShell                                   |
-| Dashboard                   | ✅ Done   | Launchpad + Activity + AI Suggestions               |
-| Documents page              | ✅ Done   | Table, Tabs, search, UploadModal, DocumentDetailPanel |
-| Reports page                | ✅ Done   | Stats, list, ReportWizard                           |
-| Bank Matching page          | ✅ Done   | Statements, BankTransactionDetail slide-over        |
-| AI page                     | ✅ Done   | Capabilities + stats                                |
-| Settings page               | ✅ Done   | Toggles, AI companion control                       |
-| Design System page          | ✅ Done   | Component showcase at /design-system                |
-| AI Companion                | ✅ Done   | Floating chat, mock responses, Settings toggle      |
-| Routing                     | ✅ Done   | 7 routes                                            |
-| Document Upload Modal       | ✅ Done   | Drag & drop, progress simulation                    |
-| Document Detail Panel       | ✅ Done   | Slide-over, metadata, history                       |
-| Classification Flow         | ✅ Done   | 4-step wizard + AI confidence suggestions           |
-| Notification Center         | ✅ Done   | Bell badge, tray, mark-read, dismiss                |
-| Report Generation Wizard    | ✅ Done   | 4-step + animated progress                          |
-| Bank Transaction Detail     | ✅ Done   | Confirm/manual/flag actions                         |
-| Hooks                       | ✅ Done   | useLocalStorage                                     |
-| Build passing               | ✅ Done   | 0 TypeScript errors                                 |
+| Design system — data/UX     | ✅ Done   | Skeleton, Pagination, DateRangePicker, FilterPanel, SortableTable, AnimatedCounter, ExportButton |
+| Global layout               | ✅ Done   | TopBar (with GlobalSearch) + AppShell                        |
+| Dashboard                   | ✅ Done   | Launchpad + Activity + AI Suggestions + Animated stats strip |
+| Documents page              | ✅ Done   | SortableTable, Tabs, FilterPanel, DateRangePicker, Pagination, ExportButton, UploadModal, DocumentDetailPanel |
+| Reports page                | ✅ Done   | Stats, list, ReportWizard                                    |
+| Bank Matching page          | ✅ Done   | Statements, BankTransactionDetail slide-over                 |
+| AI page                     | ✅ Done   | Capabilities + stats                                         |
+| Settings page               | ✅ Done   | Toggles, AI companion control                                |
+| Design System page          | ✅ Done   | Component showcase at /design-system                         |
+| AI Companion                | ✅ Done   | Floating chat, mock responses, Settings toggle               |
+| Global Search               | ✅ Done   | Cmd+K overlay, keyboard nav, full-text, quick jump           |
+| Document Upload Modal       | ✅ Done   | Drag & drop, progress simulation                             |
+| Document Detail Panel       | ✅ Done   | Slide-over, metadata, history                                |
+| Classification Flow         | ✅ Done   | 4-step wizard + AI confidence suggestions                    |
+| Notification Center         | ✅ Done   | Bell badge, tray, mark-read, dismiss                         |
+| Report Generation Wizard    | ✅ Done   | 4-step + animated progress                                   |
+| Bank Transaction Detail     | ✅ Done   | Confirm/manual/flag actions                                  |
+| Hooks                       | ✅ Done   | useLocalStorage                                              |
+| Build passing               | ✅ Done   | 0 TypeScript errors                                          |
 
 ---
 
-## NOT implemented (by design — Sprint 1–2 scope)
+## NOT implemented (by design — Sprints 1–3 scope)
 - Authentication / login
 - Database / persistence
 - Real OCR / document parsing
@@ -55,15 +56,14 @@
 
 ---
 
-## Next: Sprint 3 — Data & Filters
+## Next: Sprint 4 — Polish & Advanced UX
 
 Planned scope:
-- Sortable table columns (click header to sort)
-- Advanced filter panel (status, date range, vendor)
-- Date range picker component
-- Pagination component
-- Export to CSV (mock download trigger)
-- Search results overlay / global search panel
-- Unclassified batch-classify UI
-- Dashboard stat counters with animated number transitions
-- Skeleton loading states for all major content areas
+- Batch-classify UI (select multiple unclassified docs, classify in bulk)
+- Keyboard shortcut system (Cmd+K search already done; add J/K navigation, ? help overlay)
+- Settings: theme/density preference (compact vs comfortable table rows)
+- Dashboard: mini chart (spend by category sparklines using SVG paths)
+- Onboarding tooltip / first-run experience
+- Reports: sortable columns + filter by type/date
+- Bank Matching: sortable transaction list, match-rate trend chart
+- Accessibility review: focus rings, ARIA labels, skip-to-main

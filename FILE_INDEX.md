@@ -1,7 +1,7 @@
 # FILE_INDEX — TAJ Finance
 
 > Auto-maintained. Update whenever files are added or removed.
-> Last updated: 2025-07-16 — Sprint 2
+> Last updated: 2025-07-16 — Sprint 3
 
 ---
 
@@ -47,29 +47,36 @@
 
 ### src/components/layout/
 
-| File           | Purpose                                           |
-|----------------|---------------------------------------------------|
-| `AppShell.tsx` | TopBar + content area + AI Companion mount        |
-| `TopBar.tsx`   | Logo, search, nav links, NotificationBell, user   |
+| File           | Purpose                                               |
+|----------------|-------------------------------------------------------|
+| `AppShell.tsx` | TopBar + content area + AI Companion mount            |
+| `TopBar.tsx`   | Logo, search trigger (GlobalSearch), nav, NotificationBell, user |
 
 ### src/components/ui/ — Design system primitives
 
-| File               | Purpose                                         |
-|--------------------|-------------------------------------------------|
-| `Button.tsx`       | primary/secondary/ghost/danger; sm/md/lg        |
-| `Card.tsx`         | Surface container, CardHeader                   |
-| `Input.tsx`        | Text input, label, error, hint, icons           |
-| `Badge.tsx`        | Colour-coded status with dot                    |
-| `Table.tsx`        | Generic typed data table                        |
-| `Dialog.tsx`       | Modal overlay, accessible                       |
-| `Typography.tsx`   | PageTitle, SectionTitle, Lead, Caption, GoldText|
-| `Tooltip.tsx`      | Hover tooltip (top/bottom/left/right)           |
-| `EmptyState.tsx`   | Empty state with icon and CTA                   |
-| `ProgressBar.tsx`  | Animated progress bar                           |
-| `StepIndicator.tsx`| Step wizard progress indicator                  |
-| `Tabs.tsx`         | Tab bar — underline + pill variants             |
-| `SlideOver.tsx`    | Animated right slide-over panel                 |
-| `Breadcrumbs.tsx`  | Router-linked breadcrumb navigation             |
+| File                 | Purpose                                          |
+|----------------------|--------------------------------------------------|
+| `Button.tsx`         | primary/secondary/ghost/danger; sm/md/lg         |
+| `Card.tsx`           | Surface container, CardHeader                    |
+| `Input.tsx`          | Text input, label, error, hint, icons            |
+| `Badge.tsx`          | Colour-coded status with dot                     |
+| `Table.tsx`          | Generic typed data table (basic)                 |
+| `Dialog.tsx`         | Modal overlay, accessible                        |
+| `Typography.tsx`     | PageTitle, SectionTitle, Lead, Caption, GoldText |
+| `Tooltip.tsx`        | Hover tooltip (top/bottom/left/right)            |
+| `EmptyState.tsx`     | Empty state with icon and CTA                    |
+| `ProgressBar.tsx`    | Animated progress bar                            |
+| `StepIndicator.tsx`  | Step wizard progress indicator                   |
+| `Tabs.tsx`           | Tab bar — underline + pill variants              |
+| `SlideOver.tsx`      | Animated right slide-over panel                  |
+| `Breadcrumbs.tsx`    | Router-linked breadcrumb navigation              |
+| `Skeleton.tsx`       | Animated loading placeholders (card/row/table)   |
+| `Pagination.tsx`     | Page buttons with ellipsis and item count        |
+| `DateRangePicker.tsx`| Preset + custom date range picker                |
+| `FilterPanel.tsx`    | Multi-select filter groups with active count     |
+| `SortableTable.tsx`  | Generic sortable table with click-header sort    |
+| `AnimatedCounter.tsx`| RAF counter animation (prefix/suffix/decimals)   |
+| `ExportButton.tsx`   | CSV/XLSX mock export dropdown                    |
 
 ### src/components/ai/
 
@@ -93,11 +100,11 @@
 
 ### src/components/documents/
 
-| File                    | Purpose                                   |
-|-------------------------|-------------------------------------------|
-| `UploadModal.tsx`       | Drag & drop upload with progress          |
-| `DocumentDetailPanel.tsx`| Slide-over: metadata, history, classify  |
-| `ClassificationFlow.tsx`| 4-step classify wizard + AI suggestions  |
+| File                      | Purpose                                    |
+|---------------------------|--------------------------------------------|
+| `UploadModal.tsx`         | Drag & drop upload with progress           |
+| `DocumentDetailPanel.tsx` | Slide-over: metadata, history, classify    |
+| `ClassificationFlow.tsx`  | 4-step classify wizard + AI suggestions    |
 
 ### src/components/notifications/
 
@@ -111,17 +118,23 @@
 |-------------------|----------------------------------------------|
 | `ReportWizard.tsx`| 4-step report generation modal + progress    |
 
+### src/components/search/
+
+| File              | Purpose                                               |
+|-------------------|-------------------------------------------------------|
+| `GlobalSearch.tsx`| Cmd+K overlay, keyboard nav, full-text + quick jump   |
+
 ### src/pages/
 
-| File               | Route            | Purpose                             |
-|--------------------|------------------|-------------------------------------|
-| `Dashboard.tsx`    | `/`              | Launchpad, activity, AI suggestions |
-| `Documents.tsx`    | `/documents`     | List, upload, detail, classify      |
-| `Reports.tsx`      | `/reports`       | List, stats, generate wizard        |
-| `BankMatching.tsx` | `/bank-matching` | Statement cards, TX detail panel    |
-| `AI.tsx`           | `/ai`            | Capability cards and stats          |
-| `Settings.tsx`     | `/settings`      | Config, AI companion toggle         |
-| `DesignSystem.tsx` | `/design-system` | Component showcase (dev reference)  |
+| File               | Route            | Purpose                                      |
+|--------------------|------------------|----------------------------------------------|
+| `Dashboard.tsx`    | `/`              | Launchpad, animated stats, activity, AI      |
+| `Documents.tsx`    | `/documents`     | SortableTable, filters, pagination, upload   |
+| `Reports.tsx`      | `/reports`       | List, stats, generate wizard                 |
+| `BankMatching.tsx` | `/bank-matching` | Statement cards, TX detail panel             |
+| `AI.tsx`           | `/ai`            | Capability cards and stats                   |
+| `Settings.tsx`     | `/settings`      | Config, AI companion toggle                  |
+| `DesignSystem.tsx` | `/design-system` | Component showcase (dev reference)           |
 
 ### public/
 

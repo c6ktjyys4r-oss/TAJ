@@ -7,71 +7,70 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.3.0] — Sprint 3: Data & Filters — 2025-07-16
+
+### Added
+
+#### New UI Primitives
+- `Skeleton` / `SkeletonText` / `SkeletonCard` / `SkeletonRow` / `SkeletonTable` — animated loading placeholders
+- `Pagination` — smart ellipsis page buttons with item-count label, prev/next
+- `DateRangePicker` — preset buttons (this month / 3 months / quarter / year) + custom from/to date inputs, clear button
+- `FilterPanel` — collapsible multi-select filter groups with active count badge and clear-all
+- `SortableTable<T>` — generic table with click-header sort (asc/desc), sort icons, full keyboard-accessible
+- `AnimatedCounter` — RAF-driven ease-out-cubic counter animation with prefix / suffix / decimals
+- `ExportButton` — CSV / XLSX mock download dropdown with done-state feedback
+
+#### Global Search
+- `GlobalSearch` — full-screen overlay activated via search bar (Cmd+K visual hint)
+- Keyboard navigation: ↑↓ arrows, Enter to navigate, Esc to close
+- Full-text search across documents, reports, and transactions
+- Quick-jump shortcuts for major sections
+- No-results state with query echo
+
+### Changed
+- `TopBar` — inline search input replaced with overlay trigger button (opens GlobalSearch)
+- `Documents` — upgraded from basic `Table` to `SortableTable`; added `FilterPanel`, `DateRangePicker`, `Pagination`, `ExportButton`; total/filtered count shown in header
+- `Dashboard` — new animated stats strip (4 counters: Total, Classified %, This Month, Match Rate)
+
+---
+
 ## [0.2.0] — Sprint 2: Core Workflows — 2025-07-16
 
 ### Added
 
 #### New UI Primitives
-- `Tooltip` — hover tooltip with configurable side (top/bottom/left/right)
-- `EmptyState` — centred empty-state with icon, title, description, and optional CTA
-- `ProgressBar` — animated progress bar (sm/md/lg, gold/success/info variants)
-- `StepIndicator` — numbered step wizard indicator with done/active/pending states
-- `Tabs` — generic tab bar (underline + pill variants) with optional count badges; accepts readonly arrays
-- `SlideOver` — animated right-side panel with backdrop, keyboard dismiss, footer slot
-- `Breadcrumbs` — breadcrumb navigation using React Router links
+- `Tooltip`, `EmptyState`, `ProgressBar`, `StepIndicator`, `Tabs`, `SlideOver`, `Breadcrumbs`
 
 #### Document Workflows
-- `UploadModal` — drag-and-drop file upload: multi-file, type validation (.pdf/.jpg/.png/.xlsx), simulated progress bars, done state
-- `DocumentDetailPanel` — slide-over showing document metadata, activity history, Classify / Download / Delete actions
-- `ClassificationFlow` — 4-step classification wizard (Type → Vendor → Date → Confirm) with AI confidence suggestions and one-click apply
+- `UploadModal`, `DocumentDetailPanel`, `ClassificationFlow`
 
 #### Notification Center
-- `NotificationBell` — TopBar bell replaced with live badge showing unread count
-- `NotificationCenter` — dropdown tray: mark-all-read, per-notification dismiss, unread dot indicators
+- `NotificationBell`, `NotificationCenter` tray
 
 #### Report Generation
-- `ReportWizard` — 4-step generation wizard (Type → Period → Accounts → Generate) with animated progress bar and download CTA
+- `ReportWizard`
 
 #### Bank Matching
-- `BankTransactionDetail` — slide-over for pending transactions: Confirm Match, Enter Manually (form), Flag for Review actions
+- `BankTransactionDetail`
 
 #### Hooks
-- `useLocalStorage` — generic typed React hook for localStorage persistence
+- `useLocalStorage`
 
 ### Changed
-- `Documents` page — replaced static tab buttons with generic `Tabs` component; added `UploadModal` wired to Upload button; row click opens `DocumentDetailPanel`; `EmptyState` for empty results
-- `Reports` page — Generate Report button opens `ReportWizard`
-- `BankMatching` page — pending transaction rows open `BankTransactionDetail` slide-over
-- `TopBar` — static bell replaced with `NotificationBell` component
+- `Documents`, `Reports`, `BankMatching` pages — wired to Sprint 2 components
+- `TopBar` — static bell → `NotificationBell`
 
 ### Project
-- `PROJECT_BIBLE.md` created — authoritative product spec and sprint plan for all future agents
+- `PROJECT_BIBLE.md` created
 
 ---
 
 ## [0.1.0] — Sprint 1: Foundation — 2025-07-16
 
 ### Added
-- **Project scaffold** — Vite + React 18 + TypeScript, Tailwind CSS v3, React Router v6
-- **Design system tokens** — Gold palette, ink colours, surface, shadow scale, font families (Inter + Playfair Display)
-- **Global CSS** — Font imports, scrollbar styling, utility classes
-
-#### Layout
-- `TopBar` — TAJ logo, expandable global search, primary navigation, notification bell, user dropdown
-- `AppShell` — Sticky top bar, content area, AI Companion always mounted
-
-#### UI Components
-- `Button` — primary / secondary / ghost / danger; sm/md/lg; loading state
-- `Card` + `CardHeader`
-- `Input` — label, error, hint, leading/trailing icon
-- `Badge` — 6 variants, dot indicator
-- `Table` — generic typed columns, empty state, row click
-- `Dialog` — Escape/backdrop dismiss, size variants, accessible
-- `Typography` — PageTitle, SectionTitle, Lead, Caption, GoldText
-
-#### Pages
-- Dashboard — Launchpad (6 cards), Recent Activity, AI Suggestions
-- Documents, Reports, Bank Matching, AI, Settings, Design System
-
-#### AI Companion
-- Floating gold button, chat panel, mock responses, Settings toggle
+- Vite + React 18 + TypeScript, Tailwind CSS v3, React Router v6
+- Design tokens — gold palette, ink colours, shadows, fonts (Inter + Playfair Display)
+- Layout: `TopBar`, `AppShell`
+- UI: `Button`, `Card`, `Input`, `Badge`, `Table`, `Dialog`, `Typography`
+- Pages: Dashboard, Documents, Reports, Bank Matching, AI, Settings, Design System
+- AI Companion: floating chat, mock responses, Settings toggle
