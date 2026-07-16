@@ -1,58 +1,63 @@
-import React, { useState } from 'react';
-import { Sparkles, Bell, Globe, Shield, Users, Palette, BellRing, BellOff } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Sparkles, Bell, Globe, Shield, Users, Palette, BellRing, BellOff, Download, Upload } from 'lucide-react';
 import { PageTitle } from '../components/ui/Typography';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
-import { Badge } from '../components/ui/Badge';
 import { useSettings } from '../context/SettingsContext';
 import { useNotifications } from '../hooks/useNotifications';
-
-const SECTIONS = [
-  { id: 'general',      label: 'General',          icon: Globe },
-  { id: 'ai',           label: 'AI & Automation',   icon: Sparkles },
-  { id: 'notifications',label: 'Notifications',    icon: Bell },
-  { id: 'appearance',   label: 'Appearance',       icon: Palette },
-  { id: 'team',         label: 'Team',             icon: Users },
-  { id: 'security',     label: 'Security',         icon: Shield },
-];
-
-interface ToggleProps { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string; }
-const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label, hint }) => (
-  <div className="flex items-center justify-between py-3 border-b border-border/60 last:border-0">
-    <div>
-      <p className="text-sm font-medium text-ink-primary">{label}</p>
-      {hint && <p className="text-xs text-ink-muted mt-0.5">{hint}</p>}
-    </div>
-    <button
-      role="switch"
-      aria-checked={checked}
-      aria-label={label}
-      onClick={() => onChange(!checked)}
-      className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-1 ${
-        checked ? 'bg-gold-500' : 'bg-gray-200'
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
-          checked ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </button>
-  </div>
-);
+import { useT } from '../hooks/useT';
 
 export const Settings: React.FC = () => {
-  const [activeSection, setActiveSection] = useState('general');
+  const t = useT();
   const {
     aiCompanionEnabled, setAiCompanionEnabled,
     notificationsEmail, setNotificationsEmail,
     notificationsPush,  setNotificationsPush,
     notificationsDigest, setNotificationsDigest,
     isRTL, setIsRTL,
+    exportSettings, importSettings,
   } = useSettings();
   const { supported: notifSupported, permission, requestPermission, notify } = useNotifications();
-  const [saved, setSaved] = useState(false);
+
+  const [activeSection, setActiveSection] = useState('general');
+  const [saved, setSaved]                 = useState(false);
+  const [importMsg, setImportMsg]         = useState<{ ok: boolean; text: string } | null>(null);
+  const importInputRef                    = useRef<HTMLInputElement>(null);
+
+  const SECTIONS = [
+    { id: 'general',       label: t('settings.general'),       icon: Globe     },
+    { id: 'ai',            label: t('settings.ai'),            icon: Sparkles  },
+    { id: 'notifications', label: t('settings.notifications'), icon: Bell      },
+    { id: 'appearance',    label: t('settings.appearance'),    icon: Palette   },
+    { id: 'team',          label: t('settings.team'),          icon: Users     },
+    { id: 'security',      label: t('settings.security'),      icon: Shield    },
+  ];
+
+  interface ToggleProps { checked: boolean; onChange: (v: boolean) => void; label: string; hint?: string; }
+  const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label, hint }) => (
+    <div className="flex items-center justify-between py-3 border-b border-border/60 last:border-0">
+      <div>
+        <p className="text-sm font-medium text-ink-primary">{label}</p>
+        {hint && <p className="text-xs text-ink-muted mt-0.5">{hint}</p>}
+      </div>
+      <button
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        onClick={() => onChange(!checked)}
+        className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-1 ${
+          checked ? 'bg-gold-500' : 'bg-gray-200'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+            checked ? 'translate-x-5' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </div>
+  );
 
   const handleSave = () => {
     setSaved(true);
@@ -60,22 +65,45 @@ export const Settings: React.FC = () => {
   };
 
   const handleTestNotification = () => {
-    notify('TAJ Finance', { body: 'Test notification — everything is working correctly.' });
+    notify('TAJ Finance', { body: 'Test notification \u2014 everything is working correctly.' });
+  };
+
+  const handleExport = () => {
+    exportSettings();
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const json = ev.target?.result;
+      if (typeof json !== 'string') return;
+      const ok = importSettings(json);
+      setImportMsg({
+        ok,
+        text: ok ? t('settings.import.success') : t('settings.import.error'),
+      });
+      setTimeout(() => setImportMsg(null), 4000);
+      // Reset input so the same file can be re-selected
+      if (importInputRef.current) importInputRef.current.value = '';
+    };
+    reader.readAsText(file);
   };
 
   const permissionLabel: Record<string, string> = {
-    granted: 'Enabled',
-    denied:  'Blocked by browser',
-    default: 'Not yet requested',
+    granted: t('settings.notifEnabled'),
+    denied:  t('settings.notifDenied'),
+    default: t('settings.notifDefault'),
   };
 
   return (
     <div className="space-y-6">
-      <PageTitle>Settings</PageTitle>
+      <PageTitle>{t('page.settings.title')}</PageTitle>
 
       <div className="flex gap-6">
         {/* Sidebar nav */}
-        <aside className="w-48 shrink-0" aria-label="Settings sections">
+        <aside className="w-48 shrink-0" aria-label={t('page.settings.title')}>
           <nav className="space-y-0.5" role="navigation" aria-label="Settings navigation">
             {SECTIONS.map(({ id, label, icon: Icon }) => (
               <button
@@ -95,127 +123,150 @@ export const Settings: React.FC = () => {
         </aside>
 
         {/* Content */}
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 min-w-0">
           {activeSection === 'general' && (
-            <Card padding="md">
-              <CardHeader title="General Settings" subtitle="Manage your workspace preferences" />
-              <div className="space-y-4">
-                <Input label="Organisation Name" defaultValue="TAJ Finance" />
-                <Input label="Fiscal Year Start" type="month" defaultValue="2024-01" />
-                <Input label="Default Currency" defaultValue="SAR (Saudi Riyal)" />
-                <div className="pt-2">
-                  <Button onClick={handleSave}>{saved ? 'Saved!' : 'Save Changes'}</Button>
+            <div className="space-y-4">
+              <Card padding="md">
+                <CardHeader title="Profile" subtitle="Your account information" />
+                <div className="space-y-3 mt-2">
+                  <Input label="Full Name" defaultValue="Admin User" />
+                  <Input label="Email" type="email" defaultValue="admin@tajfinance.sa" />
+                  <Input label="Organisation" defaultValue="TAJ Enterprise" />
                 </div>
-              </div>
-            </Card>
+                <div className="flex justify-end mt-4">
+                  <Button onClick={handleSave} size="sm">
+                    {saved ? t('settings.saved') : t('action.save')}
+                  </Button>
+                </div>
+              </Card>
+
+              {/* Data Portability */}
+              <Card padding="md">
+                <CardHeader
+                  title={t('settings.dataPortability')}
+                  subtitle={t('settings.dataPortability.hint')}
+                />
+                <div className="flex flex-wrap items-center gap-3 mt-4">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Download size={13} aria-hidden="true" />}
+                    onClick={handleExport}
+                  >
+                    {t('settings.export')}
+                  </Button>
+
+                  <>
+                    <input
+                      ref={importInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      className="sr-only"
+                      aria-label={t('settings.import.ariaLabel')}
+                      onChange={handleImportFile}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      icon={<Upload size={13} aria-hidden="true" />}
+                      onClick={() => importInputRef.current?.click()}
+                    >
+                      {t('settings.import')}
+                    </Button>
+                  </>
+
+                  {importMsg && (
+                    <span
+                      className={`text-xs font-medium ${importMsg.ok ? 'text-emerald-600' : 'text-red-500'}`}
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {importMsg.text}
+                    </span>
+                  )}
+                </div>
+              </Card>
+            </div>
           )}
 
           {activeSection === 'ai' && (
             <Card padding="md">
-              <CardHeader title="AI & Automation" subtitle="Configure AI features and automation rules" />
-              <div>
-                <Toggle
-                  label="AI Companion"
-                  hint="Show the floating AI chat assistant across all pages"
-                  checked={aiCompanionEnabled}
-                  onChange={setAiCompanionEnabled}
-                />
-                <Toggle label="Auto-classify documents" hint="Let AI classify uploaded documents automatically" checked onChange={() => {}} />
-                <Toggle label="Smart bank matching"      hint="Use AI to suggest transaction matches"           checked onChange={() => {}} />
-                <Toggle label="Anomaly alerts"           hint="Get notified about unusual financial patterns"   checked={false} onChange={() => {}} />
-              </div>
+              <CardHeader title={t('settings.ai')} subtitle="Configure how AI assists your workflow" />
+              <Toggle
+                label={t('settings.aiCompanion')}
+                hint={t('settings.aiCompanion.hint')}
+                checked={aiCompanionEnabled}
+                onChange={setAiCompanionEnabled}
+              />
             </Card>
           )}
 
           {activeSection === 'notifications' && (
             <Card padding="md">
-              <CardHeader title="Notifications" subtitle="Choose when and how you are notified" />
-              <div>
-                <Toggle label="Email notifications" hint="Receive updates via email"    checked={notificationsEmail}  onChange={setNotificationsEmail} />
-                <Toggle label="Daily digest"        hint="Summary email every morning"  checked={notificationsDigest} onChange={setNotificationsDigest} />
+              <CardHeader title={t('settings.notifications')} subtitle="Manage how you receive alerts" />
 
-                {/* Push notification permission */}
-                {notifSupported && (
-                  <div className="py-4 border-b border-border/60">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-ink-primary">Browser push notifications</p>
-                        <p className="text-xs text-ink-muted mt-0.5">Receive alerts when documents are classified or reports are ready</p>
-                      </div>
-                      <Badge
-                        variant={permission === 'granted' ? 'success' : permission === 'denied' ? 'danger' : 'default'}
-                        dot
-                      >
-                        {permissionLabel[permission]}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center gap-2 mt-3">
-                      {permission === 'default' && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          icon={<BellRing size={13} />}
-                          onClick={requestPermission}
-                        >
-                          Enable push notifications
-                        </Button>
-                      )}
-                      {permission === 'granted' && (
-                        <>
-                          <Toggle
-                            label="Push notifications"
-                            checked={notificationsPush}
-                            onChange={setNotificationsPush}
-                          />
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            icon={<BellRing size={13} />}
-                            onClick={handleTestNotification}
-                          >
-                            Send test
-                          </Button>
-                        </>
-                      )}
-                      {permission === 'denied' && (
-                        <p className="text-xs text-ink-muted flex items-center gap-1">
-                          <BellOff size={12} aria-hidden="true" />
-                          Notifications are blocked. Enable them in your browser settings.
-                        </p>
-                      )}
-                    </div>
+              {notifSupported && (
+                <div className="mb-4 p-3 rounded-xl bg-gray-50 border border-border flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    {permission === 'granted'
+                      ? <BellRing size={15} className="text-emerald-600" aria-hidden="true" />
+                      : <BellOff  size={15} className="text-amber-500"   aria-hidden="true" />
+                    }
+                    <span className="text-ink-secondary">
+                      Push status: <span className="font-medium text-ink-primary">{permissionLabel[permission] ?? permission}</span>
+                    </span>
                   </div>
-                )}
-              </div>
+                  <div className="flex gap-2 shrink-0">
+                    {permission !== 'granted' && (
+                      <Button variant="secondary" size="sm" onClick={requestPermission}>
+                        {t('settings.notifRequest')}
+                      </Button>
+                    )}
+                    {permission === 'granted' && (
+                      <Button variant="ghost" size="sm" onClick={handleTestNotification}>
+                        {t('settings.notifTest')}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <Toggle label={t('settings.emailNotif')} checked={notificationsEmail} onChange={setNotificationsEmail} />
+              <Toggle label={t('settings.pushNotif')}  checked={notificationsPush}  onChange={setNotificationsPush}  />
+              <Toggle label={t('settings.digest')}     checked={notificationsDigest} onChange={setNotificationsDigest} />
             </Card>
           )}
 
           {activeSection === 'appearance' && (
             <Card padding="md">
-              <CardHeader title="Appearance" subtitle="Customise the visual style of your workspace" />
+              <CardHeader title={t('settings.appearance')} subtitle="Customise the visual style of your workspace" />
               <div className="space-y-4">
                 <div>
-                  <p className="text-sm font-medium text-ink-primary mb-2">Colour Theme</p>
-                  <div className="flex gap-2" role="radiogroup" aria-label="Colour theme">
-                    {['Gold & White (Default)', 'Slate Blue', 'Forest'].map((t, i) => (
+                  <p className="text-sm font-medium text-ink-primary mb-2">{t('settings.colourTheme')}</p>
+                  <div className="flex gap-2" role="radiogroup" aria-label={t('settings.colourTheme')}>
+                    {[
+                      t('settings.colourTheme.default'),
+                      t('settings.colourTheme.slate'),
+                      t('settings.colourTheme.forest'),
+                    ].map((theme, i) => (
                       <button
-                        key={t}
+                        key={theme}
                         role="radio"
                         aria-checked={i === 0}
                         className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                           i === 0 ? 'border-gold-400 bg-gold-50 text-gold-700' : 'border-border text-ink-secondary hover:border-gray-300'
                         }`}
                       >
-                        {t}
+                        {theme}
                       </button>
                     ))}
                   </div>
                 </div>
-                <p className="text-xs text-ink-muted">Dark mode is not available in this version.</p>
+                <p className="text-xs text-ink-muted">{t('settings.darkMode.note')}</p>
                 <div className="pt-2 border-t border-border/60">
                   <Toggle
-                    label="Arabic (RTL) layout"
-                    hint="Switch the interface to right-to-left for Arabic users"
+                    label={t('settings.rtl')}
+                    hint={t('settings.rtl.hint')}
                     checked={isRTL}
                     onChange={setIsRTL}
                   />
@@ -228,7 +279,7 @@ export const Settings: React.FC = () => {
             <Card padding="md">
               <CardHeader title={SECTIONS.find((s) => s.id === activeSection)?.label ?? ''} />
               <div className="py-8 text-center">
-                <p className="text-sm text-ink-muted">This section is available in a future release.</p>
+                <p className="text-sm text-ink-muted">{t('settings.futureRelease')}</p>
               </div>
             </Card>
           )}

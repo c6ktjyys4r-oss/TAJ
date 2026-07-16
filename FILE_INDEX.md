@@ -1,7 +1,7 @@
 # FILE_INDEX — TAJ Finance
 
 > Auto-maintained. Update whenever files are added or removed.
-> Last updated: 2025-07-16 — Sprint 9
+> Last updated: 2025-07-16 — Sprint 10
 
 ---
 
@@ -42,19 +42,19 @@
 |-------------|------------------------------------------------------|
 | `main.tsx`  | ReactDOM root, BrowserRouter                         |
 | `App.tsx`   | ErrorBoundary + SettingsProvider + Suspense + lazy routes |
-| `index.css` | Tailwind + touch + PWA + safe-area + @media print    |
+| `index.css` | Tailwind + touch + PWA + safe-area + @media print + print-report layout |
 
 ### src/i18n/
 
 | File          | Purpose                                              |
 |---------------|------------------------------------------------------|
-| `locales.ts`  | EN + AR locale map; all user-facing strings          |
+| `locales.ts`  | EN + AR locale map; 80+ user-facing strings — ALL new strings go here first |
 
 ### src/context/
 
-| File                  | Purpose                                                              |
-|-----------------------|----------------------------------------------------------------------|
-| `SettingsContext.tsx`  | AI + notifications + RTL (all localStorage-backed); sets dir/lang   |
+| File                  | Purpose                                                                |
+|-----------------------|------------------------------------------------------------------------|
+| `SettingsContext.tsx`  | AI + notifications + RTL + **exportSettings** + **importSettings**    |
 
 ### src/hooks/
 
@@ -76,34 +76,26 @@
 
 | File                  | Purpose                                                                        |
 |-----------------------|--------------------------------------------------------------------------------|
-| `AppShell.tsx`        | Shell: OfflineBanner + UpdateBanner + skip-to-main + keyboard shortcuts + tour |
-| `TopBar.tsx`          | Desktop nav + PWA install button + hamburger drawer                            |
-| `MobileBottomNav.tsx` | Fixed bottom nav — visible < md only                                           |
-
-### src/components/onboarding/
-
-| File                  | Purpose                                                            |
-|-----------------------|--------------------------------------------------------------------|
-| `OnboardingTour.tsx`  | 5-step first-run wizard; swipe navigation; once-per-browser        |
+| `AppShell.tsx`        | Main layout: TopBar + Outlet + nav shortcuts + PWA banners                    |
+| `TopBar.tsx`          | Header, nav, search, install button — **all labels via useT()**               |
+| `MobileBottomNav.tsx` | Bottom tab bar for mobile — **labels via useT()**                             |
 
 ### src/components/pwa/
 
-| File                | Purpose                                              |
-|---------------------|------------------------------------------------------|
-| `OfflineBanner.tsx` | Online/offline event listener banner                 |
-| `UpdateBanner.tsx`  | SW waiting → SKIP_WAITING prompt                     |
+| File               | Purpose                                                          |
+|--------------------|------------------------------------------------------------------|
+| `OfflineBanner.tsx`| Online/offline status banner — **messages via useT()**          |
+| `UpdateBanner.tsx` | SW waiting banner; SKIP_WAITING — **messages via useT()**       |
 
-### src/components/ui/ — Design system
+### src/components/ui/
 
-| File                    | Purpose                                                            |
-|-------------------------|--------------------------------------------------------------------|
-| `Button.tsx`            | primary/secondary/ghost/danger; sm/md/lg                          |
-| `Card.tsx`              | Surface container, CardHeader                                     |
-| `Input.tsx`             | Text input, label, error, hint, icons                             |
-| `Badge.tsx`             | Colour-coded status with dot                                      |
-| `Table.tsx`             | Basic table (legacy — prefer SortableTable)                       |
-| `Dialog.tsx`            | Modal + **focus trap** + Escape close; backdrop aria-hidden       |
-| `Typography.tsx`        | PageTitle, SectionTitle, Lead, Caption, GoldText                  |
+| File                    | Purpose / notes                                                   |
+|-------------------------|-------------------------------------------------------------------|
+| `Button.tsx`            | Variants: primary/secondary/ghost/danger; sizes sm/md/lg; NO `as` prop |
+| `Card.tsx`              | `padding` prop; `CardHeader` subcomponent                         |
+| `Badge.tsx`             | `variant`, `dot`, `size` props                                    |
+| `Input.tsx`             | Labelled input                                                    |
+| `Dialog.tsx`            | Modal + **focus trap** + aria-hidden backdrop                     |
 | `Tooltip.tsx`           | prop: `side` (top/bottom/left/right)                              |
 | `EmptyState.tsx`        | Empty state with icon and CTA                                     |
 | `ProgressBar.tsx`       | prop: `variant` (gold/success/info)                               |
@@ -113,10 +105,10 @@
 | `Breadcrumbs.tsx`       | prop: `crumbs` (not items)                                        |
 | `Skeleton.tsx`          | Placeholders + `SkeletonPage` (Suspense fallback)                 |
 | `Pagination.tsx`        | Smart ellipsis pagination                                         |
-| `DateRangePicker.tsx`   | Preset + custom date range picker                                 |
+| `DateRangePicker.tsx`   | Preset + custom range; **fields: `from`/`to`** (not start/end)   |
 | `FilterPanel.tsx`       | Multi-select filter groups                                        |
-| `SortableTable.tsx`     | Generic sortable table ⭐ preferred                               |
-| `AnimatedCounter.tsx`   | RAF + **IntersectionObserver** — only animates when in viewport   |
+| `SortableTable.tsx`     | Generic sortable table — preferred for data tables                |
+| `AnimatedCounter.tsx`   | RAF + **IntersectionObserver** — defers until in viewport         |
 | `ExportButton.tsx`      | CSV/XLSX mock export dropdown                                     |
 | `KeyboardShortcuts.tsx` | ? overlay + ShortcutsButton fixed trigger                        |
 
@@ -124,7 +116,7 @@
 
 | File                        | Purpose                                                |
 |-----------------------------|--------------------------------------------------------|
-| `UploadModal.tsx`           | Drag+drop + camera capture (mobile)                    |
+| `UploadModal.tsx`           | Drag+drop + camera capture — **labels via useT()**    |
 | `DocumentDetailPanel.tsx`   | Detail slide-over + full-screen viewer + Share API     |
 | `ClassificationFlow.tsx`    | 4-step classify wizard + notification on complete      |
 | `BatchClassifyBar.tsx`      | Floating bar for batch classification                  |
@@ -145,12 +137,12 @@
 
 ### src/pages/ — all lazy-loaded
 
-| File               | Route            | Purpose                                 |
-|--------------------|------------------|-----------------------------------------|
-| `Dashboard.tsx`    | `/`              | Launchpad, stats, SpendChart            |
-| `Documents.tsx`    | `/documents`     | Filters, batch, upload; tab persisted   |
-| `Reports.tsx`      | `/reports`       | Table, filters, wizard, export          |
-| `BankMatching.tsx` | `/bank-matching` | Table, TX detail, stats                 |
-| `AI.tsx`           | `/ai`            | Capability cards                        |
-| `Settings.tsx`     | `/settings`      | AI + RTL + notification permission      |
-| `DesignSystem.tsx` | `/design-system` | Sprint 1–4 full component showcase      |
+| File               | Route            | Purpose                                        |
+|--------------------|------------------|------------------------------------------------|
+| `Dashboard.tsx`    | `/`              | Launchpad, stats, SpendChart — **useT**        |
+| `Documents.tsx`    | `/documents`     | Filters, batch, upload, **drag-to-reorder** — **useT** |
+| `Reports.tsx`      | `/reports`       | Table, filters, wizard, **print layout** — **useT** |
+| `BankMatching.tsx` | `/bank-matching` | Table, TX detail, stats — **useT**             |
+| `AI.tsx`           | `/ai`            | Capability cards — **useT**                    |
+| `Settings.tsx`     | `/settings`      | AI + RTL + notifications + **export/import** — **useT** |
+| `DesignSystem.tsx` | `/design-system` | Sprint 1–4 full component showcase             |

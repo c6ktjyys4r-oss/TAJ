@@ -1,26 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { WifiOff, Wifi } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useT } from '../../hooks/useT';
 
 export const OfflineBanner: React.FC = () => {
-  const [online, setOnline]     = useState(navigator.onLine);
-  const [visible, setVisible]   = useState(!navigator.onLine);
-  const [, setShowBack] = useState(false);
+  const t = useT();
+  const [online,  setOnline]   = useState(navigator.onLine);
+  const [visible, setVisible]  = useState(!navigator.onLine);
 
   useEffect(() => {
     const onOnline = () => {
       setOnline(true);
-      setShowBack(true);
-      // Show "back online" briefly then hide
-      setTimeout(() => {
-        setVisible(false);
-        setShowBack(false);
-      }, 3000);
+      setVisible(true);
+      setTimeout(() => setVisible(false), 3000);
     };
     const onOffline = () => {
       setOnline(false);
       setVisible(true);
-      setShowBack(false);
     };
     window.addEventListener('online',  onOnline);
     window.addEventListener('offline', onOffline);
@@ -37,13 +33,13 @@ export const OfflineBanner: React.FC = () => {
       role="status"
       aria-live="polite"
       className={clsx(
-        'fixed top-[57px] inset-x-0 z-50 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium transition-all duration-300',
+        'fixed top-[57px] inset-x-0 z-50 flex items-center justify-center gap-2 py-2 px-4 text-sm font-medium transition-all duration-300 no-print',
         online ? 'bg-emerald-500 text-white' : 'bg-ink-primary text-white'
       )}
     >
       {online
-        ? <><Wifi size={14} aria-hidden="true" /> Back online — all features restored</>
-        : <><WifiOff size={14} aria-hidden="true" /> You are offline — the app is available but some features are limited</>
+        ? <><Wifi size={14} aria-hidden="true" /> {t('online.message')}</>
+        : <><WifiOff size={14} aria-hidden="true" /> {t('offline.message')}</>
       }
     </div>
   );

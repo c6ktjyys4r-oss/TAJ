@@ -7,6 +7,45 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.10.0] — Sprint 10: i18n Wiring, Settings Portability, Drag-Reorder & Print Layout — 2025-07-16
+
+### Added
+
+#### i18n — Full UI Wiring
+- `src/i18n/locales.ts` — comprehensive expansion with 80+ new keys covering: navigation, search, dashboard stats, launchpad descriptions, document tabs/filters, reports stats/print, bank matching stats, AI page, settings sections, data portability, upload modal, PWA banners, and accessibility strings
+- All pages now call `useT()` and resolve every user-facing string through the locale map — zero hardcoded EN-only strings remain in pages or layout components
+- **Pages wired:** Dashboard, Documents, Reports, BankMatching, AI, Settings
+- **Components wired:** TopBar, MobileBottomNav, OfflineBanner, UpdateBanner, UploadModal
+
+#### Settings — Data Portability (Export / Import)
+- `SettingsContext` — `exportSettings()` serialises all five toggles to a versioned JSON file (`taj-settings.json`) and triggers a browser download
+- `SettingsContext` — `importSettings(json)` parses and validates the JSON; applies all recognised keys to localStorage; returns `true` on success, `false` on bad input
+- Settings page — **General** section gains a **Data Portability** card with "Export Settings" and "Import Settings" buttons
+- Import shows an inline success/error status message that auto-hides after 4 s
+
+#### Documents — Drag-to-Reorder
+- New **Reorder** toggle button in the Documents toolbar
+- When active, replaces SortableTable with a draggable list using the native HTML5 Drag-and-Drop API (no new dependencies)
+- Rows show a `GripVertical` drag handle; visual feedback via gold highlight on the drop target
+- `docOrder` state preserves the custom order; exiting reorder mode returns to the paginated sortable table
+- Fully keyboard-accessible labels (`aria-label` on each row and handle)
+
+#### Reports — Print Layout
+- `PrintableReport` component: hidden on screen (`hidden print:block`), rendered when the user prints
+- Print output includes: TAJ gold logo block, report title heading, generation date, summary row count, formatted table (Report / Type / Status / Date / Pages), and a fixed footer with "Confidential" label and auto page numbers via CSS `counter(page)`
+- `index.css` — new `@page` rule (A4, 20 mm × 18 mm margins) and `.print-report`, `.print-header`, `.print-table`, `.print-footer` styles
+- Main page content wrapped in `.no-print` div to suppress it during printing
+- `OfflineBanner` and `UpdateBanner` gain `.no-print` class
+
+### Changed
+- `SettingsContext` — interface now includes `exportSettings` and `importSettings`; both are exposed to consumers
+- `TopBar` — nav labels, search placeholder, install button label, and aria-labels all resolved through `useT()`
+- `MobileBottomNav` — nav labels resolved through `useT()`; short "Bank" label uses `'nav.bank'` key
+- `Documents.tsx` — `TABS`, `FILTER_GROUPS`, column labels, empty-state strings all resolved through `useT()`; `DateRange` fields corrected to `from`/`to` (were incorrectly `start`/`end`)
+- Build: 0 TypeScript errors; bundle size unchanged
+
+---
+
 ## [0.9.0] — Sprint 9: Accessibility, Performance & i18n — 2025-07-16
 
 ### Added

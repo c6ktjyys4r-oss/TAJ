@@ -5,6 +5,7 @@ import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { Badge } from '../ui/Badge';
+import { useT } from '../../hooks/useT';
 
 interface UploadFile {
   id: string;
@@ -15,25 +16,25 @@ interface UploadFile {
 }
 
 const ALLOWED = ['application/pdf', 'image/jpeg', 'image/png', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-const ALLOWED_EXT = '.pdf, .jpg, .jpeg, .png, .xlsx';
-const MAX_MB = 20;
+const MAX_MB  = 20;
 
 function getIcon(type: string) {
-  if (type.includes('pdf')) return <FileText size={16} className="text-red-500" />;
+  if (type.includes('pdf'))   return <FileText size={16} className="text-red-500" />;
   if (type.includes('sheet')) return <FileSpreadsheet size={16} className="text-emerald-600" />;
   return <File size={16} className="text-gold-500" />;
 }
 
 function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024)           return `${bytes} B`;
+  if (bytes < 1024 * 1024)   return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 interface UploadModalProps { open: boolean; onClose: () => void; }
 
 export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
-  const [files, setFiles] = useState<UploadFile[]>([]);
+  const t = useT();
+  const [files, setFiles]     = useState<UploadFile[]>([]);
   const [dragging, setDragging] = useState(false);
   const [allDone, setAllDone] = useState(false);
 
@@ -84,88 +85,98 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
   };
 
   const pendingCount = files.filter((f) => f.status === 'pending').length;
-  const doneCount = files.filter((f) => f.status === 'done').length;
+  const doneCount    = files.filter((f) => f.status === 'done').length;
+
+  const statusLabel = (status: UploadFile['status']) => {
+    if (status === 'done')      return t('upload.done');
+    if (status === 'error')     return t('upload.error');
+    if (status === 'uploading') return t('upload.uploading');
+    return t('upload.ready');
+  };
+
+  const statusBadge = (status: UploadFile['status']): 'success' | 'danger' | 'gold' | 'default' => {
+    if (status === 'done')      return 'success';
+    if (status === 'error')     return 'danger';
+    if (status === 'uploading') return 'gold';
+    return 'default';
+  };
 
   return (
     <Dialog
       open={open}
       onClose={handleClose}
-      title="Upload Documents"
-      description="Supported formats: PDF, JPG, PNG, XLSX — up to 20 MB each"
+      title={t('upload.title')}
+      description={t('upload.description')}
       size="md"
       footer={
         <>
-          <Button variant="secondary" onClick={handleClose}>Cancel</Button>
+          <Button variant="secondary" onClick={handleClose}>{t('action.cancel')}</Button>
           {!allDone
-            ? <Button onClick={startUpload} disabled={files.length === 0 || pendingCount === 0} icon={<Upload size={14} />}>
-                Upload {pendingCount > 0 ? `${pendingCount} file${pendingCount > 1 ? 's' : ''}` : ''}
+            ? <Button onClick={startUpload} disabled={files.length === 0 || pendingCount === 0} icon={<Upload size={14} aria-hidden="true" />}>
+                {t('action.upload')}{pendingCount > 0 ? ` ${pendingCount} file${pendingCount > 1 ? 's' : ''}` : ''}
               </Button>
-            : <Button onClick={handleClose} icon={<CheckCircle size={14} />}>Done</Button>
+            : <Button onClick={handleClose} icon={<CheckCircle size={14} aria-hidden="true" />}>
+                {t('action.done')}
+              </Button>
           }
         </>
       }
     >
-      {/* Drop zone — desktop */}
-      <label
-        className={clsx(
-          'flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-150',
-          dragging ? 'border-gold-400 bg-gold-50' : 'border-border hover:border-gold-300 hover:bg-gold-50/40'
-        )}
+      {/* Drop zone */}
+      <div
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={handleDrop}
+        className={clsx(
+          'border-2 border-dashed rounded-xl p-8 text-center transition-colors duration-150',
+          dragging ? 'border-gold-400 bg-gold-50' : 'border-border hover:border-gold-300'
+        )}
       >
-        <div className={clsx(
-          'w-12 h-12 rounded-2xl flex items-center justify-center transition-colors',
-          dragging ? 'bg-gold-100' : 'bg-gray-100'
-        )}>
-          <Upload size={22} className={dragging ? 'text-gold-600' : 'text-ink-muted'} aria-hidden="true" />
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-medium text-ink-primary">
-            Drag files here, or <span className="text-gold-600 underline">browse</span>
-          </p>
-          <p className="text-xs text-ink-muted mt-0.5">{ALLOWED_EXT}</p>
-        </div>
-        <input
-          type="file"
-          multiple
-          accept={ALLOWED_EXT}
-          className="sr-only"
-          aria-label="Browse files to upload"
-          onChange={(e) => addFiles(e.target.files)}
-        />
-      </label>
+        <Upload size={24} className="mx-auto text-ink-muted mb-3" aria-hidden="true" />
+        <p className="text-sm font-medium text-ink-primary">{t('upload.dragHere')}</p>
 
-      {/* Camera capture — mobile only */}
-      <div className="mt-3 flex sm:hidden">
-        <label
-          className={clsx(
-            'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-border',
-            'text-sm font-medium text-ink-secondary cursor-pointer',
-            'hover:border-gold-300 hover:text-gold-600 hover:bg-gold-50/40 transition-all duration-150',
-            'active:scale-95'
-          )}
-        >
-          <Camera size={18} aria-hidden="true" />
-          Take a photo
-          <input
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="sr-only"
-            aria-label="Take a photo with camera"
-            onChange={(e) => addFiles(e.target.files)}
-          />
-        </label>
+        <div className="flex justify-center gap-3 mt-4">
+          {/* Browse files */}
+          <label className="inline-flex cursor-pointer">
+            <span className="sr-only">Browse files</span>
+            <input
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.xlsx"
+              className="sr-only"
+              onChange={(e) => addFiles(e.target.files)}
+            />
+            <span className="px-4 py-2 rounded-lg border border-border bg-white text-sm font-medium text-ink-secondary hover:border-gold-300 hover:text-ink-primary transition-colors">
+              Browse
+            </span>
+          </label>
+
+          {/* Camera (mobile) */}
+          <label className="inline-flex cursor-pointer sm:hidden">
+            <span className="sr-only">{t('upload.takePhoto')}</span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="sr-only"
+              onChange={(e) => addFiles(e.target.files)}
+            />
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border bg-white text-sm font-medium text-ink-secondary hover:border-gold-300 hover:text-ink-primary transition-colors">
+              <Camera size={14} aria-hidden="true" /> {t('upload.takePhoto')}
+            </span>
+          </label>
+        </div>
       </div>
 
       {/* File list */}
       {files.length > 0 && (
         <div className="mt-4 space-y-2">
           {doneCount > 0 && (
-            <p className="text-xs text-emerald-600 font-medium">
-              {doneCount} of {files.length} file{files.length > 1 ? 's' : ''} uploaded
+            <p className="text-xs text-emerald-600 font-medium" role="status" aria-live="polite">
+              {t('upload.filesOf')
+                .replace('{done}', String(doneCount))
+                .replace('{total}', String(files.length))
+                .replace('{plural}', files.length > 1 ? 's' : '')}
             </p>
           )}
           {files.map((uf) => (
@@ -174,11 +185,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-ink-primary truncate">{uf.file.name}</span>
-                  <Badge
-                    size="sm"
-                    variant={uf.status === 'done' ? 'success' : uf.status === 'error' ? 'danger' : uf.status === 'uploading' ? 'gold' : 'default'}
-                  >
-                    {uf.status === 'done' ? 'Done' : uf.status === 'error' ? 'Error' : uf.status === 'uploading' ? 'Uploading' : 'Ready'}
+                  <Badge size="sm" variant={statusBadge(uf.status)}>
+                    {statusLabel(uf.status)}
                   </Badge>
                 </div>
                 <p className="text-[10px] text-ink-muted mt-0.5">{formatBytes(uf.file.size)}</p>
