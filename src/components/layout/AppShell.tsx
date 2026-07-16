@@ -1,8 +1,10 @@
 import React from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { TopBar } from './TopBar';
+import { MobileBottomNav } from './MobileBottomNav';
 import { AICompanion } from '../ai/AICompanion';
 import { ShortcutsButton } from '../ui/KeyboardShortcuts';
+import { OnboardingTour } from '../onboarding/OnboardingTour';
 
 export const AppShell: React.FC = () => {
   const navigate = useNavigate();
@@ -38,12 +40,26 @@ export const AppShell: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-surface">
+      {/* Skip to main content — accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-gold-500 focus:text-white focus:rounded-lg focus:text-sm focus:font-medium focus:shadow-float"
+      >
+        Skip to main content
+      </a>
+
       <TopBar />
-      <main className="max-w-7xl mx-auto px-6 py-8">
+
+      <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-20 md:pb-8">
         <Outlet />
       </main>
+
+      {/* Mobile bottom nav */}
+      <MobileBottomNav />
+
       <AICompanion />
       <ShortcutsButton />
+      <OnboardingTour />
     </div>
   );
 };

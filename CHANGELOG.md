@@ -7,6 +7,44 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.5.0] — Sprint 5: Persistence, Onboarding, Accessibility & Mobile — 2025-07-16
+
+### Added
+
+#### Persistent State (localStorage)
+- `SettingsContext` — `aiCompanionEnabled` now persisted via `useLocalStorage` (key: `taj_ai_companion`)
+- `SettingsContext` — notification preferences (`notificationsEmail`, `notificationsPush`, `notificationsDigest`) added and persisted
+- `Settings` page — notification toggles wired to persisted context values
+
+#### Onboarding Tour
+- `OnboardingTour` — 5-step first-run walkthrough modal using `StepIndicator`; shows once per browser (key: `taj_onboarding_done`); dismissable at any step
+- Mounted in `AppShell`; tour auto-skipped on subsequent visits
+
+#### Accessibility
+- Skip-to-main link added to `AppShell` (visible on keyboard focus, `#main-content` anchor)
+- `aria-label`, `aria-expanded`, `aria-haspopup`, `aria-modal`, `role="menu"`, `role="menuitem"`, `role="switch"`, `role="radio"`, `role="navigation"` added throughout `TopBar`, `Settings`, and `OnboardingTour`
+- `aria-hidden="true"` on all decorative icons
+- `aria-current` on Settings sidebar nav items
+- `focus-visible` ring styles on logo button and user menu
+
+#### Mobile Responsive
+- `MobileBottomNav` — fixed bottom navigation bar (5 primary routes) shown on `< md` breakpoint
+- `TopBar` — hamburger menu button on mobile; tap opens a full-width slide-down nav drawer
+- `AppShell` — responsive horizontal padding (`px-4 sm:px-6`); `pb-20 md:pb-8` to clear bottom nav
+- Main nav hidden on mobile (handled by bottom nav + hamburger drawer)
+
+#### Design System Showcase (Sprint 3–4 components)
+- `DesignSystem` page — added showcase sections for: `Skeleton` / `SkeletonCard` / `SkeletonTable` / `SkeletonText`, `SortableTable` (with numeric custom sort), `Pagination`, `AnimatedCounter` (4 variants), `ExportButton`, `Tooltip`, `EmptyState`, `ProgressBar`, `StepIndicator` (interactive), `Tabs`, `Breadcrumbs`
+- Divider separating Sprint 1–2 vs Sprint 3–4 component groups
+
+### Changed
+- `SettingsContext` — extended interface (added notification fields); no breaking changes to existing consumers
+- `Settings` page — notification toggles now read/write from context (persisted)
+- `AppShell` — mounts `MobileBottomNav` and `OnboardingTour` alongside existing children
+- `TopBar` — hamburger button + mobile drawer added; desktop nav unchanged
+
+---
+
 ## [0.4.0] — Sprint 4: Polish & Advanced UX — 2025-07-16
 
 ### Added

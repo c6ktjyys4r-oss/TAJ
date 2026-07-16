@@ -23,6 +23,9 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label, hint }) => (
       {hint && <p className="text-xs text-ink-muted mt-0.5">{hint}</p>}
     </div>
     <button
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
       onClick={() => onChange(!checked)}
       className={`relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gold-400 focus:ring-offset-1 ${
         checked ? 'bg-gold-500' : 'bg-gray-200'
@@ -39,8 +42,12 @@ const Toggle: React.FC<ToggleProps> = ({ checked, onChange, label, hint }) => (
 
 export const Settings: React.FC = () => {
   const [activeSection, setActiveSection] = useState('general');
-  const { aiCompanionEnabled, setAiCompanionEnabled } = useSettings();
-  const [notifications, setNotifications] = useState({ email: true, push: false, digest: true });
+  const {
+    aiCompanionEnabled, setAiCompanionEnabled,
+    notificationsEmail, setNotificationsEmail,
+    notificationsPush,  setNotificationsPush,
+    notificationsDigest, setNotificationsDigest,
+  } = useSettings();
   const [saved, setSaved] = useState(false);
 
   const handleSave = () => {
@@ -54,19 +61,20 @@ export const Settings: React.FC = () => {
 
       <div className="flex gap-6">
         {/* Sidebar nav */}
-        <aside className="w-48 shrink-0">
-          <nav className="space-y-0.5">
+        <aside className="w-48 shrink-0" aria-label="Settings sections">
+          <nav className="space-y-0.5" role="navigation" aria-label="Settings navigation">
             {SECTIONS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setActiveSection(id)}
+                aria-current={activeSection === id ? 'page' : undefined}
                 className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors duration-150 ${
                   activeSection === id
                     ? 'bg-gold-50 text-gold-700'
                     : 'text-ink-secondary hover:text-ink-primary hover:bg-gray-50'
                 }`}
               >
-                <Icon size={15} /> {label}
+                <Icon size={15} aria-hidden="true" /> {label}
               </button>
             ))}
           </nav>
@@ -109,9 +117,9 @@ export const Settings: React.FC = () => {
             <Card padding="md">
               <CardHeader title="Notifications" subtitle="Choose when and how you are notified" />
               <div>
-                <Toggle label="Email notifications" hint="Receive updates via email"   checked={notifications.email}  onChange={(v) => setNotifications((n) => ({ ...n, email: v }))} />
-                <Toggle label="Browser push"        hint="Push notifications in browser" checked={notifications.push}   onChange={(v) => setNotifications((n) => ({ ...n, push: v }))} />
-                <Toggle label="Daily digest"        hint="Summary email every morning"  checked={notifications.digest} onChange={(v) => setNotifications((n) => ({ ...n, digest: v }))} />
+                <Toggle label="Email notifications" hint="Receive updates via email"   checked={notificationsEmail}  onChange={setNotificationsEmail} />
+                <Toggle label="Browser push"        hint="Push notifications in browser" checked={notificationsPush}   onChange={setNotificationsPush} />
+                <Toggle label="Daily digest"        hint="Summary email every morning"  checked={notificationsDigest} onChange={setNotificationsDigest} />
               </div>
             </Card>
           )}
@@ -122,10 +130,12 @@ export const Settings: React.FC = () => {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm font-medium text-ink-primary mb-2">Colour Theme</p>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" role="radiogroup" aria-label="Colour theme">
                     {['Gold & White (Default)', 'Slate Blue', 'Forest'].map((t, i) => (
                       <button
                         key={t}
+                        role="radio"
+                        aria-checked={i === 0}
                         className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
                           i === 0 ? 'border-gold-400 bg-gold-50 text-gold-700' : 'border-border text-ink-secondary hover:border-gray-300'
                         }`}

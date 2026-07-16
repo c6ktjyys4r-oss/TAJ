@@ -1,7 +1,7 @@
 # FILE_INDEX — TAJ Finance
 
 > Auto-maintained. Update whenever files are added or removed.
-> Last updated: 2025-07-16 — Sprint 4
+> Last updated: 2025-07-16 — Sprint 5
 
 ---
 
@@ -35,9 +35,9 @@
 
 ### src/context/
 
-| File                   | Purpose                                   |
-|------------------------|-------------------------------------------|
-| `SettingsContext.tsx`  | AI companion toggle, app-wide settings    |
+| File                   | Purpose                                                              |
+|------------------------|----------------------------------------------------------------------|
+| `SettingsContext.tsx`  | AI companion + notification prefs, all persisted via localStorage    |
 
 ### src/hooks/
 
@@ -47,37 +47,44 @@
 
 ### src/components/layout/
 
-| File           | Purpose                                                       |
-|----------------|---------------------------------------------------------------|
-| `AppShell.tsx` | Shell: TopBar + content + AI + ShortcutsButton + g+X nav     |
-| `TopBar.tsx`   | Logo, GlobalSearch trigger, nav links, NotificationBell, user |
+| File                 | Purpose                                                           |
+|----------------------|-------------------------------------------------------------------|
+| `AppShell.tsx`       | Shell: TopBar + skip-to-main + OnboardingTour + MobileBottomNav + AI + Shortcuts |
+| `TopBar.tsx`         | Logo, GlobalSearch, desktop nav, hamburger drawer (mobile), user menu |
+| `MobileBottomNav.tsx`| Fixed bottom nav bar — visible < md breakpoint only              |
+
+### src/components/onboarding/
+
+| File                  | Purpose                                                        |
+|-----------------------|----------------------------------------------------------------|
+| `OnboardingTour.tsx`  | 5-step first-run wizard; once-per-browser via localStorage     |
 
 ### src/components/ui/ — Design system primitives
 
-| File                 | Purpose                                          |
-|----------------------|--------------------------------------------------|
-| `Button.tsx`         | primary/secondary/ghost/danger; sm/md/lg         |
-| `Card.tsx`           | Surface container, CardHeader                    |
-| `Input.tsx`          | Text input, label, error, hint, icons            |
-| `Badge.tsx`          | Colour-coded status with dot                     |
+| File                 | Purpose                                           |
+|----------------------|---------------------------------------------------|
+| `Button.tsx`         | primary/secondary/ghost/danger; sm/md/lg          |
+| `Card.tsx`           | Surface container, CardHeader                     |
+| `Input.tsx`          | Text input, label, error, hint, icons             |
+| `Badge.tsx`          | Colour-coded status with dot                      |
 | `Table.tsx`          | Basic generic table (legacy; prefer SortableTable)|
-| `Dialog.tsx`         | Modal overlay, accessible                        |
-| `Typography.tsx`     | PageTitle, SectionTitle, Lead, Caption, GoldText |
-| `Tooltip.tsx`        | Hover tooltip (top/bottom/left/right)            |
-| `EmptyState.tsx`     | Empty state with icon and CTA                    |
-| `ProgressBar.tsx`    | Animated progress bar                            |
-| `StepIndicator.tsx`  | Step wizard progress indicator                   |
-| `Tabs.tsx`           | Tab bar — underline + pill variants              |
-| `SlideOver.tsx`      | Animated right slide-over panel                  |
-| `Breadcrumbs.tsx`    | Router-linked breadcrumb navigation              |
-| `Skeleton.tsx`       | Animated loading placeholders (card/row/table)   |
-| `Pagination.tsx`     | Page buttons with ellipsis and item count        |
-| `DateRangePicker.tsx`| Preset + custom date range picker                |
-| `FilterPanel.tsx`    | Multi-select filter groups with active count     |
-| `SortableTable.tsx`  | Generic sortable table with click-header sort ⭐ |
-| `AnimatedCounter.tsx`| RAF counter animation (prefix/suffix/decimals)   |
-| `ExportButton.tsx`   | CSV/XLSX mock export dropdown                    |
-| `KeyboardShortcuts.tsx`| ? overlay + ShortcutsButton fixed trigger      |
+| `Dialog.tsx`         | Modal overlay, accessible                         |
+| `Typography.tsx`     | PageTitle, SectionTitle, Lead, Caption, GoldText  |
+| `Tooltip.tsx`        | Hover tooltip — prop: `side` (top/bottom/left/right) |
+| `EmptyState.tsx`     | Empty state with icon and CTA                     |
+| `ProgressBar.tsx`    | Animated progress bar — prop: `variant` (not color) |
+| `StepIndicator.tsx`  | Step wizard progress indicator                    |
+| `Tabs.tsx`           | Tab bar — underline + pill variants               |
+| `SlideOver.tsx`      | Animated right slide-over panel                   |
+| `Breadcrumbs.tsx`    | Router-linked breadcrumb nav — prop: `crumbs` (not items) |
+| `Skeleton.tsx`       | Animated loading placeholders (card/row/table)    |
+| `Pagination.tsx`     | Page buttons with ellipsis and item count         |
+| `DateRangePicker.tsx`| Preset + custom date range picker                 |
+| `FilterPanel.tsx`    | Multi-select filter groups with active count      |
+| `SortableTable.tsx`  | Generic sortable table with click-header sort ⭐  |
+| `AnimatedCounter.tsx`| RAF counter animation (prefix/suffix/decimals)    |
+| `ExportButton.tsx`   | CSV/XLSX mock export dropdown                     |
+| `KeyboardShortcuts.tsx`| ? overlay + ShortcutsButton fixed trigger       |
 
 ### src/components/ai/
 
@@ -136,8 +143,8 @@
 | `Reports.tsx`      | `/reports`       | SortableTable, filters, wizard, export          |
 | `BankMatching.tsx` | `/bank-matching` | SortableTable, TX detail, stats                 |
 | `AI.tsx`           | `/ai`            | Capability cards and stats                      |
-| `Settings.tsx`     | `/settings`      | Config, AI companion toggle                     |
-| `DesignSystem.tsx` | `/design-system` | Component showcase (dev reference)              |
+| `Settings.tsx`     | `/settings`      | Config, AI companion + notification toggles     |
+| `DesignSystem.tsx` | `/design-system` | Sprint 1–4 full component showcase              |
 
 ### public/
 
