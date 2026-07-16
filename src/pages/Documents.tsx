@@ -6,11 +6,14 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { Input } from '../components/ui/Input';
 import { Table } from '../components/ui/Table';
+import { Tabs } from '../components/ui/Tabs';
+import { EmptyState } from '../components/ui/EmptyState';
+import { UploadModal } from '../components/documents/UploadModal';
+import { DocumentDetailPanel } from '../components/documents/DocumentDetailPanel';
+import type { DocumentRecord } from '../components/documents/DocumentDetailPanel';
 
-const TABS = ['All', 'Unclassified', 'Invoices', 'Receipts', 'Statements'];
-
-const DOCS = [
-  { id: '1', name: 'Invoice_AlRajhi_Oct2024.pdf',  type: 'Invoice',    status: 'Classified',   size: '234 KB', date: '2024-10-15', vendor: 'Al Rajhi Cement' },
+const RAW_DOCS: DocumentRecord[] = [
+  { id: '1', name: 'Invoice_AlRajhi_Oct2024.pdf',   type: 'Invoice',    status: 'Classified',   size: '234 KB', date: '2024-10-15', vendor: 'Al Rajhi Cement' },
   { id: '2', name: 'SABB_Statement_Oct2024.pdf',    type: 'Statement',  status: 'Needs Review', size: '1.2 MB', date: '2024-10-14', vendor: 'SABB' },
   { id: '3', name: 'Receipt_0893.jpg',              type: 'Receipt',    status: 'Unclassified', size: '156 KB', date: '2024-10-14', vendor: '—' },
   { id: '4', name: 'Invoice_Suppliers_Sep2024.xlsx',type: 'Invoice',    status: 'Classified',   size: '87 KB',  date: '2024-10-13', vendor: 'Multiple' },
@@ -19,9 +22,22 @@ const DOCS = [
   { id: '7', name: 'Riyad_Statement_Sep2024.pdf',   type: 'Statement',  status: 'Classified',   size: '980 KB', date: '2024-10-10', vendor: 'Riyad Bank' },
 ];
 
+const TABS = [
+  { value: 'all',           label: 'All',           count: RAW_DOCS.length },
+  { value: 'unclassified',  label: 'Unclassified',  count: RAW_DOCS.filter((d) => d.status === 'Unclassified').length },
+  { value: 'invoices',      label: 'Invoices',      count: RAW_DOCS.filter((d) => d.type === 'Invoice').length },
+  { value: 'receipts',      label: 'Receipts',      count: RAW_DOCS.filter((d) => d.type === 'Receipt').length },
+  { value: 'statements',    label: 'Statements',    count: RAW_DOCS.filter((d) => d.type === 'Statement').length },
+] as const;
+
+type TabValue = typeof TABS[number]['value'];
+
 const statusVariant: Record<string, 'success' | 'warning' | 'default'> = {
   Classified: 'success', 'Needs Review': 'warning', Unclassified: 'default',
 };
+
+interface Doc extends DocumentRecord { [key: string]: unknown; }
+const DOCS: Doc[] = RAW_DOCS as Doc[];
 
 function FileIcon({ type }: { type: string }) {
   const cls = 'text-gold-500';
@@ -30,30 +46,22 @@ function FileIcon({ type }: { type: string }) {
   return <FileText size={15} className={cls} />;
 }
 
-interface Doc {
-  id: string;
-  name: string;
-  type: string;
-  status: string;
-  size: string;
-  date: string;
-  vendor: string;
-  [key: string]: unknown;
-}
-
-const DOCS_TYPED: Doc[] = DOCS;
-
 export const Documents: React.FC = () => {
-  const [activeTab, setActiveTab] = useState('All');
+  const [activeTab, setActiveTab] = useState<TabValue>('all');
   const [search, setSearch] = useState('');
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<DocumentRecord | null>(null);
 
-  const filtered: Doc[] = DOCS_TYPED.filter((d) => {
-    const tabMatch = activeTab === 'All'
-      || (activeTab === 'Unclassified' && d.status === 'Unclassified')
-      || d.type === activeTab.slice(0, -1)
-      || d.type === activeTab;
-    const searchMatch = d.name.toLowerCase().includes(search.toLowerCase())
-      || d.vendor.toLowerCase().includes(search.toLowerCase());
+  const filtered = DOCS.filter((d) => {
+    const tabMatch =
+      activeTab === 'all'          ? true :
+      activeTab === 'unclassified' ? d.status === 'Unclassified' :
+      activeTab === 'invoices'     ? d.type === 'Invoice' :
+      activeTab === 'receipts'     ? d.type === 'Receipt' :
+      activeTab === 'statements'   ? d.type === 'Statement' : true;
+    const searchMatch =
+      d.name.toLowerCase().includes(search.toLowerCase()) ||
+      d.vendor.toLowerCase().includes(search.toLowerCase());
     return tabMatch && searchMatch;
   });
 
@@ -67,7 +75,7 @@ export const Documents: React.FC = () => {
         </div>
       ),
     },
-    { key: 'type', header: 'Type', render: (row: Doc) => <Badge variant="gold">{row.type}</Badge> },
+    { key: 'type',   header: 'Type',   render: (row: Doc) => <Badge variant="gold">{row.type}</Badge> },
     {
       key: 'status', header: 'Status',
       render: (row: Doc) => (
@@ -75,57 +83,59 @@ export const Documents: React.FC = () => {
       ),
     },
     { key: 'vendor', header: 'Vendor' },
-    { key: 'size', header: 'Size', align: 'right' as const },
-    { key: 'date', header: 'Date', align: 'right' as const },
+    { key: 'size',   header: 'Size',   align: 'right' as const },
+    { key: 'date',   header: 'Date',   align: 'right' as const },
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <PageTitle>Documents</PageTitle>
-          <p className="text-sm text-ink-muted mt-1">{DOCS.length} total documents</p>
-        </div>
-        <Button icon={<Upload size={15} />}>Upload</Button>
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors duration-150 ${
-              activeTab === tab
-                ? 'border-gold-500 text-gold-600'
-                : 'border-transparent text-ink-secondary hover:text-ink-primary hover:border-gray-200'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      <Card padding="none">
-        {/* Toolbar */}
-        <div className="flex items-center gap-3 p-4 border-b border-border">
-          <div className="flex-1 max-w-xs">
-            <Input
-              placeholder="Search documents…"
-              leadingIcon={<Search size={14} />}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+    <>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <PageTitle>Documents</PageTitle>
+            <p className="text-sm text-ink-muted mt-1">{DOCS.length} total documents</p>
           </div>
-          <Button variant="secondary" icon={<Filter size={14} />} size="sm">Filter</Button>
+          <Button icon={<Upload size={15} />} onClick={() => setUploadOpen(true)}>Upload</Button>
         </div>
-        <Table<Doc>
-          columns={columns}
-          data={filtered}
-          keyExtractor={(row) => row.id}
-          emptyMessage="No documents found"
-        />
-      </Card>
-    </div>
+
+        <Tabs tabs={TABS} active={activeTab} onChange={setActiveTab} />
+
+        <Card padding="none">
+          {/* Toolbar */}
+          <div className="flex items-center gap-3 p-4 border-b border-border">
+            <div className="flex-1 max-w-xs">
+              <Input
+                placeholder="Search documents…"
+                leadingIcon={<Search size={14} />}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <Button variant="secondary" icon={<Filter size={14} />} size="sm">Filter</Button>
+          </div>
+
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<FileText size={22} />}
+              title="No documents found"
+              description="Try adjusting your search or upload new documents."
+              action={{ label: 'Upload Documents', onClick: () => setUploadOpen(true), icon: <Upload size={13} /> }}
+            />
+          ) : (
+            <Table<Doc>
+              columns={columns}
+              data={filtered}
+              keyExtractor={(row) => row.id}
+              onRowClick={(row) => setSelectedDoc(row as DocumentRecord)}
+              emptyMessage="No documents found"
+            />
+          )}
+        </Card>
+      </div>
+
+      {/* Modals */}
+      <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
+      <DocumentDetailPanel doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+    </>
   );
 };

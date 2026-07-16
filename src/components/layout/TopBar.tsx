@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Search, LayoutDashboard, FileText, BarChart2,
-  GitMerge, Sparkles, Settings, Bell, User, ChevronDown, LogOut, UserCircle
+  GitMerge, Sparkles, Settings, User, ChevronDown, LogOut, UserCircle
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Input } from '../ui/Input';
+import { NotificationBell } from '../notifications/NotificationCenter';
 
 const NAV_ITEMS = [
   { to: '/',              label: 'Dashboard',     icon: LayoutDashboard },
@@ -71,10 +72,7 @@ export const TopBar: React.FC = () => {
         {/* Right side */}
         <div className="flex items-center gap-2 shrink-0">
           {/* Notifications */}
-          <button className="relative p-2 rounded-lg text-ink-muted hover:text-ink-primary hover:bg-gold-50 transition-colors">
-            <Bell size={16} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-gold-500" />
-          </button>
+          <NotificationBell />
 
           {/* User Menu */}
           <div className="relative">
