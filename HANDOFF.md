@@ -1,7 +1,7 @@
 # TAJ Finance — Handoff Document
 
 > For any agent or developer picking up this project.
-> Last updated: 2025-07-16 — Sprint 5 complete.
+> Last updated: 2025-07-16 — Sprint 6 complete.
 
 ---
 
@@ -9,10 +9,18 @@
 
 ```bash
 npm install
-npm run dev        # dev server at http://localhost:5173
-npm run build      # production build → dist/
-npm run preview    # serve production build locally
+npm run dev        # dev server at http://localhost:5173 (SW disabled in dev)
+npm run build      # production build → dist/ (SW + manifest generated)
+npm run preview    # serve production build locally (SW active)
 ```
+
+---
+
+## PWA notes
+- Service worker is **disabled in dev** (`devOptions.enabled: false` in `vite.config.ts`) to avoid caching issues during development.
+- Run `npm run build && npm run preview` to test the full PWA experience (install prompt, offline, etc.).
+- Icons are in `public/`: `pwa-192.png`, `pwa-512.png`, `apple-touch-icon.png`.
+- Regenerate icons: `magick -size 512x512 xc:"#C9A84C" ... pwa-512.png` (see CHANGELOG for full command).
 
 ---
 
@@ -21,79 +29,44 @@ npm run preview    # serve production build locally
 ```
 TAJ/
 ├── src/
-│   ├── App.tsx                              # Router root, SettingsProvider
-│   ├── main.tsx                             # ReactDOM entry
-│   ├── index.css                            # Global CSS + Tailwind
+│   ├── App.tsx
+│   ├── main.tsx
+│   ├── index.css                            # Touch optimisation + safe-area insets + PWA CSS
 │   ├── context/
-│   │   └── SettingsContext.tsx              # aiCompanionEnabled + notification prefs (all persisted via localStorage)
+│   │   └── SettingsContext.tsx              # AI companion + notification prefs (localStorage)
 │   ├── hooks/
-│   │   └── useLocalStorage.ts              # Generic localStorage hook
+│   │   └── useLocalStorage.ts
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── AppShell.tsx                # Shell: TopBar + skip-to-main + OnboardingTour + MobileBottomNav + AI + Shortcuts
-│   │   │   ├── TopBar.tsx                  # Logo, GlobalSearch, desktop nav, hamburger drawer (mobile), user menu
-│   │   │   └── MobileBottomNav.tsx         # Fixed bottom nav bar — visible < md breakpoint only
+│   │   │   ├── AppShell.tsx                # Shell + OfflineBanner + OnboardingTour
+│   │   │   ├── TopBar.tsx                  # Desktop nav + hamburger drawer
+│   │   │   └── MobileBottomNav.tsx         # Fixed bottom nav < md
 │   │   ├── onboarding/
-│   │   │   └── OnboardingTour.tsx          # 5-step first-run wizard; persisted via localStorage flag
-│   │   ├── ui/                             # Design system primitives
-│   │   │   ├── Button.tsx
-│   │   │   ├── Card.tsx
-│   │   │   ├── Input.tsx
-│   │   │   ├── Badge.tsx
-│   │   │   ├── Table.tsx                   # Basic generic table (use SortableTable for new work)
-│   │   │   ├── Dialog.tsx
-│   │   │   ├── Typography.tsx
-│   │   │   ├── Tooltip.tsx                 # prop: side (not position)
-│   │   │   ├── EmptyState.tsx
-│   │   │   ├── ProgressBar.tsx             # prop: variant (not color)
-│   │   │   ├── StepIndicator.tsx
-│   │   │   ├── Tabs.tsx
-│   │   │   ├── SlideOver.tsx
-│   │   │   ├── Breadcrumbs.tsx             # prop: crumbs (not items)
-│   │   │   ├── Skeleton.tsx                # Loading states
-│   │   │   ├── Pagination.tsx              # Smart ellipsis pagination
-│   │   │   ├── DateRangePicker.tsx         # Preset + custom date range
-│   │   │   ├── FilterPanel.tsx             # Multi-select filter groups
-│   │   │   ├── SortableTable.tsx           # Click-header sort, generic typed ⭐
-│   │   │   ├── AnimatedCounter.tsx         # RAF counter with easing
-│   │   │   ├── ExportButton.tsx            # CSV/XLSX mock export dropdown
-│   │   │   └── KeyboardShortcuts.tsx       # ? overlay + ShortcutsButton fixed trigger
-│   │   ├── ai/
-│   │   │   └── AICompanion.tsx
-│   │   ├── banking/
-│   │   │   └── BankTransactionDetail.tsx
-│   │   ├── dashboard/
-│   │   │   ├── LaunchpadCard.tsx
-│   │   │   ├── RecentActivity.tsx
-│   │   │   ├── AISuggestions.tsx
-│   │   │   └── SpendChart.tsx              # SVG sparklines by category
-│   │   ├── documents/
-│   │   │   ├── UploadModal.tsx
-│   │   │   ├── DocumentDetailPanel.tsx
-│   │   │   ├── ClassificationFlow.tsx
-│   │   │   └── BatchClassifyBar.tsx        # Multi-select floating action bar
-│   │   ├── notifications/
-│   │   │   └── NotificationCenter.tsx
-│   │   ├── reports/
-│   │   │   └── ReportWizard.tsx
-│   │   └── search/
-│   │       └── GlobalSearch.tsx            # Cmd+K overlay
-│   └── pages/
-│       ├── Dashboard.tsx
-│       ├── Documents.tsx
-│       ├── Reports.tsx
-│       ├── BankMatching.tsx
-│       ├── AI.tsx
-│       ├── Settings.tsx
-│       └── DesignSystem.tsx                # Full Sprint 1–4 component showcase
-├── public/favicon.svg
+│   │   │   └── OnboardingTour.tsx
+│   │   ├── pwa/
+│   │   │   └── OfflineBanner.tsx           # Online/offline event listener banner
+│   │   ├── ui/                             # Full design system (Sprint 1–4)
+│   │   ├── ai/AICompanion.tsx
+│   │   ├── banking/BankTransactionDetail.tsx
+│   │   ├── dashboard/                      # LaunchpadCard, RecentActivity, AISuggestions, SpendChart
+│   │   ├── documents/                      # UploadModal (+ camera), DocumentDetailPanel, ClassificationFlow, BatchClassifyBar
+│   │   ├── notifications/NotificationCenter.tsx
+│   │   ├── reports/ReportWizard.tsx
+│   │   └── search/GlobalSearch.tsx
+│   └── pages/                              # Dashboard, Documents, Reports, BankMatching, AI, Settings, DesignSystem
+├── public/
+│   ├── favicon.svg
+│   ├── pwa-192.png                         # PWA launcher icon
+│   ├── pwa-512.png                         # PWA splash / maskable icon
+│   └── apple-touch-icon.png               # iOS home screen icon
+├── vite.config.ts                          # VitePWA plugin config
+├── index.html                              # PWA meta tags, manifest link
 ├── CHANGELOG.md
 ├── FILE_INDEX.md
 ├── HANDOFF.md
-├── PROJECT_BIBLE.md                         # Master product spec — read first
+├── PROJECT_BIBLE.md
 ├── PROJECT_STATE.md
 ├── tailwind.config.js
-├── vite.config.ts
 └── package.json
 ```
 
@@ -101,18 +74,18 @@ TAJ/
 
 ## Key decisions
 
-1. **All data is mock/static.** No backend or DB. Every list is hardcoded in components.
-2. **SettingsContext** controls AI companion and notification prefs — all persisted via `useLocalStorage`. Add new persisted settings here.
-3. **Design tokens in `tailwind.config.js`** — gold shades, ink, surface, shadows, font families.
-4. **Playfair Display** for all headings/titles. **Inter** for body text.
-5. **No dark mode.** Excluded from scope by PROJECT_BIBLE.
-6. **SlideOver** used for detail panels. **Dialog** for wizards/modals.
-7. **verbatimModuleSyntax** is enabled — always use `import type` for type-only imports.
-8. **SortableTable** is preferred over basic Table for all new list UIs.
-9. **Keyboard shortcuts** are registered in AppShell (g+X) and in ShortcutsButton (?) via native event listeners.
-10. **Prop gotchas** — `Tooltip` uses `side` (not `position`); `ProgressBar` uses `variant` (not `color`); `Breadcrumbs` uses `crumbs` (not `items`).
-11. **Mobile layout** — desktop nav is `hidden md:flex`; mobile uses bottom nav bar + hamburger drawer. `AppShell` main has `pb-20 md:pb-8` to clear the bottom bar.
-12. **Onboarding tour** — persisted via `taj_onboarding_done` key. Reset by clearing localStorage to re-trigger.
+1. **All data is mock/static.** No backend or DB.
+2. **PWA strategy** — Web-first, installable PWA. Native apps excluded until after Beta (see PROJECT_BIBLE / PWA Strategy doc).
+3. **SW disabled in dev** — `devOptions.enabled: false`. Use `npm run preview` to test SW.
+4. **SettingsContext** — AI companion + notification prefs, all persisted via `useLocalStorage`.
+5. **Design tokens** in `tailwind.config.js` — gold shades, ink, surface, shadows, fonts.
+6. **No dark mode.** Excluded from scope by PROJECT_BIBLE.
+7. **verbatimModuleSyntax** — always use `import type` for type-only imports.
+8. **SortableTable** preferred over basic Table for all new list UIs.
+9. **Prop gotchas** — `Tooltip` prop is `side`; `ProgressBar` prop is `variant`; `Breadcrumbs` prop is `crumbs`.
+10. **Mobile layout** — desktop nav `hidden md:flex`; mobile uses bottom nav + hamburger drawer; `pb-20 md:pb-8` on main.
+11. **Camera upload** — `<input type=file capture=environment>` in UploadModal, visible only on mobile (`< sm`).
+12. **Touch delay** — eliminated via `touch-action: manipulation` in `index.css`.
 
 ---
 
@@ -120,23 +93,21 @@ TAJ/
 
 | Path             | Component      | Notes                                        |
 |------------------|----------------|----------------------------------------------|
-| `/`              | Dashboard      | Launchpad, animated stats, SpendChart        |
-| `/documents`     | Documents      | Full filters, batch classify, upload, detail |
-| `/reports`       | Reports        | SortableTable, filters, wizard               |
-| `/bank-matching` | BankMatching   | SortableTable, TX detail, stats              |
+| `/`              | Dashboard      | Launchpad, stats, SpendChart                 |
+| `/documents`     | Documents      | Filters, batch, upload (+ camera), detail    |
+| `/reports`       | Reports        | SortableTable, wizard, export                |
+| `/bank-matching` | BankMatching   | SortableTable, TX detail                     |
 | `/ai`            | AI             | Capability cards                             |
-| `/settings`      | Settings       | AI toggle, persisted notification prefs      |
+| `/settings`      | Settings       | AI + notification toggles (persisted)        |
 | `/design-system` | DesignSystem   | Sprint 1–4 full component showcase           |
 
 ---
 
 ## For next agent
 
-1. Read `PROJECT_BIBLE.md` before any sprint.
+1. Read `PROJECT_BIBLE.md` and PWA strategy before any sprint.
 2. Check `PROJECT_STATE.md` for current status.
-3. All UI primitives live in `src/components/ui/` — use SortableTable (not Table) for new lists.
-4. Use `import type` for type-only imports (verbatimModuleSyntax strict mode).
-5. Run `npm run build` before every commit — 0 errors required.
-6. Update CHANGELOG, PROJECT_STATE, HANDOFF, FILE_INDEX after every sprint.
-7. Commit and push after every milestone.
-8. Note the prop gotchas in decision #10 above — they caused TypeScript errors in Sprint 5.
+3. Run `npm run build` before every commit — 0 errors required.
+4. Test PWA with `npm run preview` (SW only active in production build).
+5. Update CHANGELOG, PROJECT_STATE, HANDOFF, FILE_INDEX after every sprint.
+6. Commit and push after every milestone.

@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Upload, X, FileText, FileSpreadsheet, File, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, X, FileText, FileSpreadsheet, File, CheckCircle, AlertCircle, Camera } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Dialog } from '../ui/Dialog';
 import { Button } from '../ui/Button';
@@ -41,7 +41,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
     if (!incoming) return;
     const next: UploadFile[] = Array.from(incoming)
       .filter((f) => {
-        const validType = ALLOWED.includes(f.type);
+        const validType = ALLOWED.includes(f.type) || f.type.startsWith('image/');
         const validSize = f.size <= MAX_MB * 1024 * 1024;
         return validType && validSize;
       })
@@ -105,7 +105,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
         </>
       }
     >
-      {/* Drop zone */}
+      {/* Drop zone — desktop */}
       <label
         className={clsx(
           'flex flex-col items-center justify-center gap-3 p-8 rounded-xl border-2 border-dashed cursor-pointer transition-all duration-150',
@@ -119,7 +119,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
           'w-12 h-12 rounded-2xl flex items-center justify-center transition-colors',
           dragging ? 'bg-gold-100' : 'bg-gray-100'
         )}>
-          <Upload size={22} className={dragging ? 'text-gold-600' : 'text-ink-muted'} />
+          <Upload size={22} className={dragging ? 'text-gold-600' : 'text-ink-muted'} aria-hidden="true" />
         </div>
         <div className="text-center">
           <p className="text-sm font-medium text-ink-primary">
@@ -132,9 +132,33 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
           multiple
           accept={ALLOWED_EXT}
           className="sr-only"
+          aria-label="Browse files to upload"
           onChange={(e) => addFiles(e.target.files)}
         />
       </label>
+
+      {/* Camera capture — mobile only */}
+      <div className="mt-3 flex sm:hidden">
+        <label
+          className={clsx(
+            'flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-border',
+            'text-sm font-medium text-ink-secondary cursor-pointer',
+            'hover:border-gold-300 hover:text-gold-600 hover:bg-gold-50/40 transition-all duration-150',
+            'active:scale-95'
+          )}
+        >
+          <Camera size={18} aria-hidden="true" />
+          Take a photo
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="sr-only"
+            aria-label="Take a photo with camera"
+            onChange={(e) => addFiles(e.target.files)}
+          />
+        </label>
+      </div>
 
       {/* File list */}
       {files.length > 0 && (
@@ -146,7 +170,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
           )}
           {files.map((uf) => (
             <div key={uf.id} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-border">
-              <span className="shrink-0">{getIcon(uf.file.type)}</span>
+              <span className="shrink-0" aria-hidden="true">{getIcon(uf.file.type)}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-ink-primary truncate">{uf.file.name}</span>
@@ -162,15 +186,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
                   <ProgressBar value={uf.progress} size="sm" className="mt-1.5" />
                 )}
                 {uf.status === 'error' && (
-                  <p className="text-xs text-red-500 mt-0.5 flex items-center gap-1"><AlertCircle size={10} />{uf.error}</p>
+                  <p className="text-xs text-red-500 mt-0.5 flex items-center gap-1">
+                    <AlertCircle size={10} aria-hidden="true" />{uf.error}
+                  </p>
                 )}
               </div>
               {uf.status !== 'uploading' && (
-                <button onClick={() => removeFile(uf.id)} className="shrink-0 text-ink-muted hover:text-red-500 transition-colors">
-                  <X size={14} />
+                <button
+                  onClick={() => removeFile(uf.id)}
+                  aria-label={`Remove ${uf.file.name}`}
+                  className="shrink-0 text-ink-muted hover:text-red-500 transition-colors p-1 touch-target"
+                >
+                  <X size={14} aria-hidden="true" />
                 </button>
               )}
-              {uf.status === 'done' && <CheckCircle size={16} className="text-emerald-500 shrink-0" />}
+              {uf.status === 'done' && <CheckCircle size={16} className="text-emerald-500 shrink-0" aria-hidden="true" />}
             </div>
           ))}
         </div>

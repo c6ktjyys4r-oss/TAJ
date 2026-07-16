@@ -5,6 +5,7 @@ import { MobileBottomNav } from './MobileBottomNav';
 import { AICompanion } from '../ai/AICompanion';
 import { ShortcutsButton } from '../ui/KeyboardShortcuts';
 import { OnboardingTour } from '../onboarding/OnboardingTour';
+import { OfflineBanner } from '../pwa/OfflineBanner';
 
 export const AppShell: React.FC = () => {
   const navigate = useNavigate();
@@ -49,14 +50,13 @@ export const AppShell: React.FC = () => {
       </a>
 
       <TopBar />
+      <OfflineBanner />
 
       <main id="main-content" className="max-w-7xl mx-auto px-4 sm:px-6 py-6 pb-20 md:pb-8">
         <Outlet />
       </main>
 
-      {/* Mobile bottom nav */}
       <MobileBottomNav />
-
       <AICompanion />
       <ShortcutsButton />
       <OnboardingTour />

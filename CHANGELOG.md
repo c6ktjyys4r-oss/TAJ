@@ -7,78 +7,68 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.5.0] — Sprint 5: Persistence, Onboarding, Accessibility & Mobile — 2025-07-16
+## [0.6.0] — Sprint 6: Progressive Web App — 2025-07-16
 
 ### Added
 
-#### Persistent State (localStorage)
-- `SettingsContext` — `aiCompanionEnabled` now persisted via `useLocalStorage` (key: `taj_ai_companion`)
-- `SettingsContext` — notification preferences (`notificationsEmail`, `notificationsPush`, `notificationsDigest`) added and persisted
-- `Settings` page — notification toggles wired to persisted context values
+#### PWA Core
+- `vite-plugin-pwa` installed and configured with `generateSW` strategy
+- `manifest.webmanifest` generated — name, short_name, description, theme_color (#C9A84C), display standalone, start_url `/`, orientation portrait-primary
+- Service worker via Workbox — precaches all JS/CSS/HTML/PNG/SVG/WOFF2 assets (14 entries, ~426 KB)
+- Runtime caching for Google Fonts (CacheFirst, 1-year TTL)
 
-#### Onboarding Tour
-- `OnboardingTour` — 5-step first-run walkthrough modal using `StepIndicator`; shows once per browser (key: `taj_onboarding_done`); dismissable at any step
-- Mounted in `AppShell`; tour auto-skipped on subsequent visits
+#### Icons
+- `public/pwa-192.png` — 192×192 launcher icon
+- `public/pwa-512.png` — 512×512 launcher icon (also registered as maskable)
+- `public/apple-touch-icon.png` — 180×180 for iOS home screen
 
-#### Accessibility
-- Skip-to-main link added to `AppShell` (visible on keyboard focus, `#main-content` anchor)
-- `aria-label`, `aria-expanded`, `aria-haspopup`, `aria-modal`, `role="menu"`, `role="menuitem"`, `role="switch"`, `role="radio"`, `role="navigation"` added throughout `TopBar`, `Settings`, and `OnboardingTour`
-- `aria-hidden="true"` on all decorative icons
-- `aria-current` on Settings sidebar nav items
-- `focus-visible` ring styles on logo button and user menu
+#### Meta / index.html
+- `<link rel="manifest">`, `<link rel="apple-touch-icon">`
+- `theme-color`, `mobile-web-app-capable`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style`, `apple-mobile-web-app-title`, `application-name`, `msapplication-TileColor`
+- `viewport-fit=cover` for notched devices
 
-#### Mobile Responsive
-- `MobileBottomNav` — fixed bottom navigation bar (5 primary routes) shown on `< md` breakpoint
-- `TopBar` — hamburger menu button on mobile; tap opens a full-width slide-down nav drawer
-- `AppShell` — responsive horizontal padding (`px-4 sm:px-6`); `pb-20 md:pb-8` to clear bottom nav
-- Main nav hidden on mobile (handled by bottom nav + hamburger drawer)
+#### Camera Upload
+- `UploadModal` — "Take a photo" button (mobile only, `< sm` breakpoint); uses `<input type=file capture=environment accept=image/*>`
+- Validates camera-captured images (any image/* type accepted alongside PDF/XLSX)
 
-#### Design System Showcase (Sprint 3–4 components)
-- `DesignSystem` page — added showcase sections for: `Skeleton` / `SkeletonCard` / `SkeletonTable` / `SkeletonText`, `SortableTable` (with numeric custom sort), `Pagination`, `AnimatedCounter` (4 variants), `ExportButton`, `Tooltip`, `EmptyState`, `ProgressBar`, `StepIndicator` (interactive), `Tabs`, `Breadcrumbs`
-- Divider separating Sprint 1–2 vs Sprint 3–4 component groups
+#### Offline Indicator
+- `OfflineBanner` — mounted in `AppShell`; listens to `window online/offline` events; shows dark banner when offline, green "Back online" flash for 3s on reconnect
 
-### Changed
-- `SettingsContext` — extended interface (added notification fields); no breaking changes to existing consumers
-- `Settings` page — notification toggles now read/write from context (persisted)
-- `AppShell` — mounts `MobileBottomNav` and `OnboardingTour` alongside existing children
-- `TopBar` — hamburger button + mobile drawer added; desktop nav unchanged
+#### Touch Optimisation — `index.css`
+- `-webkit-tap-highlight-color: transparent` + `touch-action: manipulation` on all interactive elements — removes 300ms tap delay
+- `overscroll-behavior-y: contain` on body — prevents pull-to-refresh interfering with in-app scroll
+- Safe-area insets (`env(safe-area-inset-*)`) for notched iPhones
+- `.touch-target` utility class — enforces 44×44 px minimum tap target
+- `active:scale-95` press feedback on touch
+
+---
+
+## [0.5.0] — Sprint 5: Persistence, Onboarding, Accessibility & Mobile — 2025-07-16
+
+### Added
+- Persistent state (localStorage): AI companion + notification prefs
+- `OnboardingTour` — 5-step first-run wizard
+- Accessibility: skip-to-main, ARIA labels/roles, focus-visible rings
+- `MobileBottomNav` — fixed bottom nav < md breakpoint
+- TopBar hamburger drawer for mobile
+- Design System page: full Sprint 3–4 component showcase
 
 ---
 
 ## [0.4.0] — Sprint 4: Polish & Advanced UX — 2025-07-16
 
 ### Added
-
-#### Keyboard Navigation
-- `KeyboardShortcuts` — overlay with full shortcut reference (press `?` to open/close)
-- `ShortcutsButton` — fixed bottom-left trigger, always mounted in AppShell
-- `AppShell` — global `g+d/o/r/b/s` navigation shortcuts (go to Dashboard/Documents/Reports/Bank/Settings)
-
-#### Spend Chart
-- `SpendChart` — SVG sparklines per spend category (cubic bezier path, translucent fill + stroke), mounted in Dashboard
-
-#### Batch Classify
-- `BatchClassifyBar` — floating selection bar: type dropdown classify, done-state feedback, clear selection
-- Documents page gains checkbox column + multi-select state; bar appears when any row selected
-
-### Changed
-- `Dashboard` — 3-column bottom row: Activity + AI Suggestions + SpendChart
-- `Reports` — `SortableTable` + `FilterPanel` (type/status) + `AnimatedCounter` stats + `ExportButton`
-- `BankMatching` — `SortableTable` for pending transactions (sort by date/amount/bank) + `AnimatedCounter` stats + Review button per row
-- `AppShell` — `ShortcutsButton` mounted at shell level; keyboard nav shortcuts registered globally
+- `KeyboardShortcuts`, `ShortcutsButton`, `AppShell` g+X shortcuts
+- `SpendChart` — SVG sparklines
+- `BatchClassifyBar` — floating batch action bar
 
 ---
 
 ## [0.3.0] — Sprint 3: Data & Filters — 2025-07-16
 
 ### Added
-- `Skeleton` family, `Pagination`, `DateRangePicker`, `FilterPanel`, `SortableTable`, `AnimatedCounter`, `ExportButton`
-- `GlobalSearch` — Cmd+K overlay, keyboard nav (↑↓ Enter Esc), full-text + quick jump
-
-### Changed
-- `TopBar` — search trigger opens GlobalSearch
-- `Documents` — SortableTable, FilterPanel, DateRangePicker, Pagination, ExportButton
-- `Dashboard` — animated stats strip
+- `Skeleton`, `Pagination`, `DateRangePicker`, `FilterPanel`, `SortableTable`, `AnimatedCounter`, `ExportButton`
+- `GlobalSearch` — Cmd+K overlay
 
 ---
 
@@ -87,15 +77,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - `Tooltip`, `EmptyState`, `ProgressBar`, `StepIndicator`, `Tabs`, `SlideOver`, `Breadcrumbs`
 - `UploadModal`, `DocumentDetailPanel`, `ClassificationFlow`
-- `NotificationBell` + `NotificationCenter` tray
-- `ReportWizard`
-- `BankTransactionDetail`
-- `useLocalStorage`
-- `PROJECT_BIBLE.md`
-
-### Changed
-- Documents, Reports, BankMatching pages wired to Sprint 2 components
-- TopBar: static bell → `NotificationBell`
+- `NotificationCenter`, `ReportWizard`, `BankTransactionDetail`
 
 ---
 
@@ -103,8 +85,4 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 - Vite + React 18 + TypeScript, Tailwind CSS v3, React Router v6
-- Design tokens — gold palette, ink colours, shadows, fonts
-- Layout: `TopBar`, `AppShell`
-- UI: `Button`, `Card`, `Input`, `Badge`, `Table`, `Dialog`, `Typography`
-- Pages: Dashboard, Documents, Reports, Bank Matching, AI, Settings, Design System
-- AI Companion: floating chat, mock responses, Settings toggle
+- Design system primitives, layout, all pages

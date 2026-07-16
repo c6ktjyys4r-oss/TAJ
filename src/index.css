@@ -10,11 +10,24 @@
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Safe area insets for notched devices */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
   }
 
   body {
     @apply bg-white text-ink-primary font-sans;
     min-height: 100vh;
+    /* Prevent content from going under notch */
+    padding-bottom: env(safe-area-inset-bottom);
+    /* Prevent pull-to-refresh interfering with app gestures */
+    overscroll-behavior-y: contain;
+  }
+
+  /* Touch: remove tap highlight on interactive elements */
+  button, a, label, [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -42,4 +55,16 @@
     content: '';
     @apply absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-0.5 bg-gold-500 rounded-full;
   }
+
+  /* Touch-friendly minimum tap target (44×44 px) */
+  .touch-target {
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Active press feedback on mobile */
+  .active\:scale-95:active { transform: scale(0.95); }
 }
