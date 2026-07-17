@@ -1,12 +1,13 @@
 import { Router } from 'express';
-    import healthRouter from './health';
+import healthRouter    from './health';
+import documentsRouter from './documents';
+import uploadRouter    from './upload';
 
-    const router = Router();
+const router = Router();
 
-    // All routes are prefixed with /api
-    router.use('/api', healthRouter);
+// All routes are prefixed with /api
+router.use('/api', healthRouter);
+router.use('/api/documents', documentsRouter);
+router.use('/api/upload',    uploadRouter);
 
-    // Sprint 2+: document routes, classification routes, etc. will be added here
-
-    export default router;
-    
+export default router;
