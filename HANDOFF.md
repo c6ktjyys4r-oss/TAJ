@@ -1,106 +1,117 @@
-# TAJ Finance — Handoff Document
+# TAJ Finance — Handoff
 
-> For any agent or developer picking up this project.
-> Last updated: 2025-07-16 — Sprint 10 complete.
+    > For any agent or developer picking up this project.
+    > Last updated: 2026-07-17
 
----
+    ---
 
-## How to run
+    ## How to Use This File
 
-```bash
-npm install
-npm run dev        # dev server (SW disabled in dev)
-npm run build      # production build → dist/
-npm run preview    # serve production (SW active — test PWA install, offline, update)
-```
+    This file always contains the most recent session handoff.
+    At the end of every sprint or session, overwrite it with a new handoff following the template in `GOVERNANCE.md` §6.
 
----
+    ---
 
-## Architecture overview
+    ## Current Session Record
 
-- **Code split** — every page is `React.lazy`. Initial load ~298 KB. Pages load on demand.
-- **ErrorBoundary** — wraps full route tree; any render crash shows recovery UI.
-- **RTL** — `isRTL` in `SettingsContext` sets `document.documentElement.dir` + `lang`.
-- **SW update** — `UpdateBanner` sends `SKIP_WAITING`; `controllerchange` reloads.
-- **Swipe** — `SlideOver` right-swipe (≥80px) closes; `OnboardingTour` left/right swipe navigates steps.
-- **Focus trap** — `useFocusTrap` locks Tab/Shift+Tab inside `Dialog` and `SlideOver`; focus restored to triggering element on close.
-- **i18n** — `src/i18n/locales.ts` maps EN+AR strings; `useT()` hook selects locale from `isRTL`.
-- **IntersectionObserver** — `AnimatedCounter` defers animation until element is 20% in viewport.
-- **Settings portability** — `exportSettings()` downloads `taj-settings.json`; `importSettings(json)` reads and applies it.
-- **Drag-to-reorder** — Documents page "Reorder" mode uses HTML5 DnD; `docOrder` state maintains order during session.
+    **Session date:** 2026-07-17
+    **Sprint:** Pre-Sprint 1 — Documentation and Governance
+    **Status:** COMPLETE
 
----
+    ---
 
-## Hooks reference
+    ## Architecture State
 
-| Hook                 | File                          | Purpose                                                            |
-|----------------------|-------------------------------|--------------------------------------------------------------------|
-| `useLocalStorage`    | `hooks/useLocalStorage.ts`    | Generic typed localStorage getter/setter                          |
-| `usePWAInstall`      | `hooks/usePWAInstall.ts`      | beforeinstallprompt intercept + standalone detection              |
-| `useNotifications`   | `hooks/useNotifications.ts`   | Notification API: permission, requestPermission, notify           |
-| `useFocusTrap`       | `hooks/useFocusTrap.ts`       | Focus loop inside container; restores prior focus on deactivation |
-| `useT`               | `hooks/useT.ts`               | `t(key)` — resolves EN/AR locale string from `src/i18n/locales.ts`|
+    TAJ Finance is currently a frontend-only application. The React + Vite + TypeScript frontend is deployed as a Render Static Site at `https://taj-finance.onrender.com`. All 7 pages run on mock/localStorage data. No backend connection exists anywhere in the codebase.
 
----
+    A PostgreSQL 18 database (`alba-db`, ID: `dpg-d8hlj3ojo6nc73cc37qg-a`) is provisioned on Render (Virginia region) and is healthy. The database is empty — no tables or schema exist yet.
 
-## Key decisions & gotchas
+    There is an unrelated orphaned Render web service named "Alba" (`srv-d8gskvurnols73c3pm30`) pointing to a deleted GitHub repo. It uses a Neon database unrelated to TAJ. Ignore it entirely.
 
-1. **verbatimModuleSyntax** — `import type` for type-only imports.
-2. **SortableTable** preferred over basic `Table`.
-3. **Prop gotchas** — `Tooltip` → `side`; `ProgressBar` → `variant`; `Breadcrumbs` → `crumbs`.
-4. **Focus trap** — `useFocusTrap(ref, open)` — pass the container ref and an `active` bool. Implemented in `Dialog` and `SlideOver`; add to any new modal.
-5. **Code splitting** — new pages must be added as `React.lazy` in `App.tsx`.
-6. **RTL** — `Tailwind rtl:` variants work when `dir="rtl"` is on `<html>`. `useT` returns Arabic strings automatically.
-7. **i18n** — add ALL new UI strings to `src/i18n/locales.ts` in both `en` and `ar` before use. Use `useT` hook to retrieve. Never hardcode user-facing strings in components.
-8. **Tab persistence** — Documents `activeTab` persisted via `useLocalStorage('taj_docs_tab')`.
-9. **AnimatedCounter** — only starts animating when ≥20% visible. Safe to place in any off-screen section.
-10. **SW disabled in dev** — `devOptions.enabled: false`. Use `npm run preview` for full PWA.
-11. **Notification flow** — `useNotifications` hook; request in Settings → Notifications.
-12. **Print CSS** — `no-print` class hides elements from print; `print-report` class is shown only when printing; `@page` rule sets A4 size.
-13. **Settings export/import** — format is `{ version: 1, exported: ISO-string, settings: { ... } }`. Version must be `1` or import is rejected.
-14. **DateRange type** — fields are `from` and `to` (NOT `start` / `end`). See `DateRangePicker.tsx`.
-15. **Button component** — has no `as` prop. For trigger-label patterns, place the `<input>` adjacent and call `.click()` from the button's `onClick`.
+    ---
 
----
+    ## What Changed This Session
 
-## File structure (abbreviated)
+    - Created `ROADMAP.md` — Beta Sprint 1–7 plan, now the single source of truth for future development
+    - Created `GOVERNANCE.md` — Permanent rules, architecture principles, core domain model, handoff template, env var registry, Render service registry
+    - Updated `PROJECT_BIBLE.md` — Document-first vision, current system state, corrected technology stack
+    - Updated `HANDOFF.md` — This file, restructured to match governance template
+    - Updated `README.md` — Reflects current state, links to governance docs
 
-```
-src/
-├── App.tsx                    # ErrorBoundary + Suspense + lazy routes
-├── index.css                  # Tailwind + touch + PWA + safe-area + @media print
-├── i18n/locales.ts            # EN + AR locale map — 80+ keys
-├── context/SettingsContext.tsx # AI + notifications + RTL + exportSettings + importSettings
-├── hooks/
-│   ├── useLocalStorage.ts
-│   ├── usePWAInstall.ts
-│   ├── useNotifications.ts
-│   ├── useFocusTrap.ts
-│   └── useT.ts
-├── components/
-│   ├── error/ErrorBoundary.tsx
-│   ├── layout/ (AppShell, TopBar [useT], MobileBottomNav [useT])
-│   ├── onboarding/OnboardingTour.tsx
-│   ├── pwa/ (OfflineBanner [useT], UpdateBanner [useT])
-│   ├── ui/ (full design system)
-│   └── documents/ (UploadModal [useT], DocumentDetailPanel, ClassificationFlow, BatchClassifyBar)
-└── pages/
-    ├── Dashboard.tsx  [useT]
-    ├── Documents.tsx  [useT + drag-to-reorder]
-    ├── Reports.tsx    [useT + print layout]
-    ├── BankMatching.tsx [useT]
-    ├── AI.tsx         [useT]
-    ├── Settings.tsx   [useT + export/import]
-    └── DesignSystem.tsx
-```
+    ---
 
----
+    ## Database State
 
-## For next agent
-1. Read `PROJECT_BIBLE.md` + `PROJECT_STATE.md`.
-2. `npm run build` before every commit — 0 errors required.
-3. Add new UI strings to `src/i18n/locales.ts` in both `en` and `ar`.
-4. New pages → add as `React.lazy` in `App.tsx`.
-5. New modals → add `useFocusTrap`.
-6. DateRange fields are `from`/`to` — never `start`/`end`.
-7. Update all 4 doc files after every sprint.
+    | Table | Status | Notes |
+    |---|---|---|
+    | *(none)* | Not created | Sprint 1 creates the initial schema via Drizzle migration |
+
+    ---
+
+    ## APIs Added
+
+    None. No backend exists yet.
+
+    ---
+
+    ## Remaining Work
+
+    - [ ] Sprint 1: Create `server/` directory with Express + TypeScript + Drizzle + Zod + Pino
+    - [ ] Sprint 1: Write initial Drizzle migration (documents table)
+    - [ ] Sprint 1: Implement `GET /api/health` returning `{ status, db, timestamp }`
+    - [ ] Sprint 1: Update `render.yaml` with a web service entry (rootDir: `server`)
+    - [ ] Sprint 1: Create Render Web Service `taj-finance-api` linked to `server/`
+    - [ ] Sprint 1: Set `VITE_API_URL` on the static site after backend URL is known
+
+    ---
+
+    ## Next Recommended Task
+
+    **Begin Sprint 1 — Backend Foundation.**
+
+    Create `server/` in the repository root containing:
+
+    ```
+    server/
+    ├── package.json        (Node 22, pnpm, express, drizzle-orm, pg, zod, pino, typescript)
+    ├── tsconfig.json       (module: CommonJS, outDir: dist, strict: true)
+    └── src/
+      ├── index.ts        (Express app, listens on process.env.PORT)
+      ├── config.ts       (Zod env validation — exits if DATABASE_URL or CORS_ORIGIN missing)
+      ├── db.ts           (Drizzle + pg Pool from DATABASE_URL)
+      └── routes/
+          └── health.ts   (GET /api/health → { status: "ok", db: "connected", timestamp })
+    ```
+
+    Then add a `web` service entry to `render.yaml` with `rootDir: server`.
+
+    Full environment variable requirements: `GOVERNANCE.md` §7.
+    Full sprint scope: `ROADMAP.md` Sprint 1.
+
+    ---
+
+    ## Risks and Known Issues
+
+    | Risk | Detail |
+    |---|---|
+    | DATABASE_URL hostname | The URL on the static site uses the **external** hostname. The backend must use the **internal** hostname: `dpg-d8hlj3ojo6nc73cc37qg-a.internal`. Obtain the full internal URL from the Render database dashboard before creating the web service. |
+    | render.yaml scope | Currently declares only the static site. Adding the backend requires a new `web` service block. Auto-deploy will trigger on push to `main` once configured. |
+    | Empty database | No schema exists. The Drizzle migration must run before any endpoint other than `/api/health` can return real data. |
+    | CORS | The backend must set `CORS_ORIGIN=https://taj-finance.onrender.com`. Without it, the frontend cannot call the API. |
+
+    ---
+
+    ## Verification Status
+
+    | Check | Status |
+    |---|---|
+    | Frontend deployed and live | ✅ https://taj-finance.onrender.com |
+    | Database available | ✅ alba-db, PostgreSQL 18, Virginia |
+    | ROADMAP.md created | ✅ |
+    | GOVERNANCE.md created | ✅ |
+    | PROJECT_BIBLE.md updated | ✅ |
+    | GitHub up to date | ✅ (this commit) |
+    | Backend exists | ❌ Sprint 1 required |
+    | Any API endpoint live | ❌ Sprint 1 required |
+    | Database schema exists | ❌ Sprint 1 required |
+    

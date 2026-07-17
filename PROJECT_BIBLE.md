@@ -1,104 +1,124 @@
 # TAJ Finance — Project Bible
 
-> The authoritative product specification for TAJ Finance.
-> All agents must read this before beginning any sprint.
+    > The authoritative product specification for TAJ Finance.
+    > All agents must read this before beginning any sprint.
+    > Last updated: 2026-07-17
 
----
+    ---
 
-## Product Vision
+    ## Product Vision
 
-TAJ Finance is a premium financial document management platform for Saudi enterprises. It automates document classification, bank reconciliation, and financial reporting using AI — giving finance teams a single, intelligent workspace.
+    TAJ Finance is a **Financial Document Management Platform** for Saudi enterprises.
 
-### Core values
-- **Elegance** — White background, gold accents, Playfair + Inter typography. Premium at every interaction.
-- **Trust** — Numbers must be accurate. Status must be clear. Nothing should feel hidden.
-- **Speed** — The app must feel fast. Transitions smooth, actions immediate.
-- **Intelligence** — AI assistance everywhere, never intrusive.
+    **Core domain: the Document.**
 
----
+    TAJ is NOT a generic accounting system. Every feature must be grounded in the document domain.
 
-## Visual Identity (non-negotiable)
+    Documents are the Single Source of Truth. Everything in the system derives from them:
 
-| Token          | Value                                     |
-|----------------|-------------------------------------------|
-| Background     | `#FFFFFF` white                           |
-| Gold 500       | `#C9A84C` — primary accent               |
-| Heading font   | Playfair Display (serif)                  |
-| Body font      | Inter (sans-serif)                        |
-| Border radius  | 8px cards, 12px panels, 16px modals       |
-| Shadow         | Subtle, no heavy drop shadows             |
-| Dark mode      | NOT required in any sprint                |
-| Emojis in UI   | NEVER                                     |
+    | Derived capability | Description |
+    |---|---|
+    | Classification | Categorising documents by type, vendor, date |
+    | AI Extraction | Pulling structured data from document content |
+    | Bank Matching | Reconciling documents against bank transactions |
+    | Reports | Aggregating and presenting document data |
+    | Archive | Long-term storage and retrieval |
+    | Audit Trail | Complete history of every document action |
 
----
+    Supported document types: Invoice, Receipt, Bank Statement, Credit Note, Debit Note, Purchase Order, Attachment.
 
-## Application Map
+    ### Core Values
 
-| Route            | Page              | Sprint |
-|------------------|-------------------|--------|
-| `/`              | Dashboard         | 1 ✅   |
-| `/documents`     | Documents list    | 1 ✅   |
-| `/reports`       | Reports           | 1 ✅   |
-| `/bank-matching` | Bank Matching     | 1 ✅   |
-| `/ai`            | AI Intelligence   | 1 ✅   |
-| `/settings`      | Settings          | 1 ✅   |
-| `/design-system` | Design System     | 1 ✅   |
+    - **Elegance** — White background, gold accents, Playfair + Inter typography. Premium at every interaction.
+    - **Trust** — Numbers must be accurate. Status must be clear. Nothing should feel hidden.
+    - **Speed** — The app must feel fast. Transitions smooth, actions immediate.
+    - **Intelligence** — AI assistance everywhere, never intrusive.
 
----
+    ---
 
-## Sprint Plan
+    ## Visual Identity (non-negotiable)
 
-### Sprint 1 — Foundation ✅ COMPLETE
-See `PROJECT_STATE.md` and `CHANGELOG.md` for details.
+    | Token | Value |
+    |---|---|
+    | Background | `#FFFFFF` white |
+    | Gold 500 | `#C9A84C` — primary accent |
+    | Heading font | Playfair Display (serif) |
+    | Body font | Inter (sans-serif) |
+    | Border radius | 8px cards, 12px panels, 16px modals |
+    | Shadow | Subtle, no heavy drop shadows |
+    | Dark mode | NOT required in any sprint |
+    | Emojis in UI | NEVER |
 
-### Sprint 2 — Core Workflows
-Scope (all UI/mock only, no real backend):
+    ---
 
-1. **Document Upload Modal** — Drag & drop zone, multi-file, type validation (.pdf .jpg .xlsx .png), simulated progress, success state.
-2. **Document Detail Panel** — Slide-over from document table row. Shows filename, type, vendor, date, file size, status badge, classification history, action buttons (Classify, Download, Delete).
-3. **Classification Flow** — Modal wizard: Step 1 select document type → Step 2 enter vendor name → Step 3 pick date → Step 4 confirm & submit. Shows AI confidence suggestion on each step.
-4. **Notification Center** — Tray from TopBar bell icon. Shows 5–8 notifications with icons, timestamps, mark-all-read button. Unread count badge on bell.
-5. **Report Generation Wizard** — Modal: Step 1 pick report type → Step 2 pick date range → Step 3 select banks/accounts → Step 4 confirm. Simulated 2s generation with progress indicator.
-6. **Bank Transaction Detail** — Expanded row / slide-over for a pending transaction. Shows raw bank description, amount, suggested match, "Confirm Match", "Enter Manually", "Flag for Review" actions.
-7. **Reusable UX Components** — `Tooltip`, `EmptyState`, `Breadcrumbs`, `ProgressBar`, `Tabs` (generic), `StepIndicator`.
-8. **Sidebar variant** — Optional collapsible left sidebar for Documents and Reports pages (left nav for sub-sections).
+    ## Current System State (as of 2026-07-17)
 
-All pages must remain functional. Run `npm run build` before every commit. Zero TypeScript errors.
+    ### Frontend — Sprint 10 complete (demo phase)
 
-### Sprint 3 — Data & Filters (future)
-- Advanced filtering panel
-- Sortable table columns
-- Date range picker
-- Pagination
-- Export to CSV/Excel
+    All 7 pages are built and deployed as a React + Vite + TypeScript static site at `https://taj-finance.onrender.com`. All data is mocked (localStorage). No backend connection exists yet.
 
-### Sprint 4 — Polish & Animation (future)
-- Page transition animations
-- Skeleton loaders
-- Confetti/success animations
-- Onboarding tour
+    | Route | Page | Data source |
+    |---|---|---|
+    | `/` | Dashboard | Mock |
+    | `/documents` | Documents | Mock |
+    | `/reports` | Reports | Mock |
+    | `/bank-matching` | Bank Matching | Mock |
+    | `/ai` | AI Intelligence | Mock |
+    | `/settings` | Settings | localStorage |
+    | `/design-system` | Design System showcase | Static |
 
----
+    ### Backend — Sprint 1 not started
 
-## What is NEVER built (by design)
-- Authentication / login screens
-- Real database or API calls
-- OCR or real document parsing
-- Real LLM/AI integration
-- Dark mode
-- Business logic / real calculations
-- Any backend server code
+    No backend exists. The `server/` directory does not yet exist in the repository. Creating it is the entire scope of Sprint 1.
 
-All data is static/mocked inside components.
+    ### Database
 
----
+    PostgreSQL 18 (`alba-db`) is provisioned on Render (Virginia, `dpg-d8hlj3ojo6nc73cc37qg-a`) and available. No schema exists. Migrations will be written in Sprint 1.
 
-## Coding standards
-- TypeScript strict, zero `any`, zero unused imports
-- All components in `src/components/ui/` (primitives) or `src/components/<domain>/`
-- Pages in `src/pages/`
-- Context in `src/context/`
-- Hooks in `src/hooks/`
-- Run `npm run build` before every commit
-- Commit after every logical milestone (not after every file)
-- Update CHANGELOG, PROJECT_STATE, HANDOFF, FILE_INDEX after every sprint
+    ---
+
+    ## Architecture Stack
+
+    ### Frontend (current)
+
+    | Layer | Technology |
+    |---|---|
+    | Framework | React 19 + Vite 8 + TypeScript 6 |
+    | Styling | Tailwind CSS 3 |
+    | Routing | React Router DOM 7 |
+    | PWA | Workbox, service worker, offline support |
+    | Code splitting | `React.lazy` on all 7 pages |
+    | State | `SettingsContext` (localStorage via `useLocalStorage`) |
+    | i18n | EN + AR via `useT()` hook and `src/i18n/locales.ts` |
+
+    ### Backend (planned — Sprint 1)
+
+    | Layer | Technology |
+    |---|---|
+    | Runtime | Node.js 22 |
+    | Server | Express 5 + TypeScript |
+    | ORM | Drizzle ORM |
+    | Database | PostgreSQL 18 |
+    | Validation | Zod (env config + request bodies) |
+    | Logging | Pino (structured) |
+    | Build | tsc → `dist/` |
+
+    ### Infrastructure
+
+    | Resource | Detail |
+    |---|---|
+    | Repo | `c6ktjyys4r-oss/TAJ` (GitHub) |
+    | Frontend | Render Static Site — `taj-finance` |
+    | Backend | Render Web Service — `taj-finance-api` (Sprint 1) |
+    | Database | Render PostgreSQL — `alba-db`, Virginia |
+
+    ---
+
+    ## Governance and Roadmap
+
+    All development rules, architecture principles, environment variables, and handoff requirements: **`GOVERNANCE.md`**
+
+    Beta roadmap (Sprints 1–7): **`ROADMAP.md`**
+
+    All agents must read both files before beginning any work.
+    
