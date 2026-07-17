@@ -41,7 +41,7 @@ services:
       branch: main
       rootDir: server
       autoDeploy: true
-      buildCommand: npm install && npm run build
+      buildCommand: npm install --include=dev && npm run build
       startCommand: node dist/index.js
       healthCheckPath: /api/health
       pullRequestPreviewsEnabled: false
