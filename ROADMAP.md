@@ -2,7 +2,7 @@
 
     > This document is the single source of truth for all future development until Beta.
     > Updated: 2026-07-17
-    > Status: Sprint 1 not started
+    > Status: Sprint 1 in progress
 
     ---
 
@@ -19,22 +19,22 @@
     ## Beta Sprint Plan
 
     ### Sprint 1 — Backend Foundation
-    **Status: Not started**
+    **Status: In Progress — deploying to Render**
 
     Establish the server, database connection, and operational baseline.
 
-    | Item | Description |
-    |---|---|
-    | Express + TypeScript | Production-grade server setup |
-    | PostgreSQL + Drizzle | ORM, connection pool, migrations |
-    | Migrations | Schema versioning from day one |
-    | Health Endpoint | `GET /api/health` — runtime + DB liveness |
-    | Logging | Structured request/error logging (pino) |
-    | Error Handling | Centralised error middleware, typed errors |
-    | Configuration | Environment validation (zod) at startup |
+    | Item | Status | Description |
+    |---|---|---|
+    | Express + TypeScript | ✅ | `server/src/index.ts` — Express 4, CommonJS target |
+    | PostgreSQL + Drizzle | ✅ | `server/src/db/index.ts` — pg Pool + drizzle-orm |
+    | Migration infrastructure | ✅ | `server/migrations/` + drizzle.config.ts + db:migrate script |
+    | Configuration / env validation | ✅ | `server/src/config.ts` — Zod schema, fail-fast on startup |
+    | Structured logging | ✅ | `server/src/logger.ts` — Pino JSON logger |
+    | Global error handling | ✅ | `server/src/middleware/errorHandler.ts` — AppError + handler |
+    | Health endpoint | ✅ | `GET /api/health` — liveness + DB connectivity check |
+    | Render deployment | 🔄 | `server/` rootDir, Node 22, `render.yaml` updated |
 
-    **Entry point:** `server/src/index.ts`
-    **Build:** `pnpm install --no-frozen-lockfile && pnpm run build`
+    **Build:** `npm install && npm run build`
     **Start:** `node dist/index.js`
     **Health check path:** `/api/health`
 
@@ -47,7 +47,7 @@
 
     | Item | Description |
     |---|---|
-    | Document Entity | Schema: id, type, vendor, date, amount, currency, status, created_at |
+    | Document Entity | Schema: id, type, vendor, date, amount, currency, status, file_path, created_at |
     | File Upload | Multipart upload endpoint, file validation |
     | Storage | File storage strategy (local → S3-compatible) |
     | Metadata | Extraction and storage of document metadata |
@@ -69,8 +69,6 @@
     | Tags | Free-form tagging system |
     | Review Workflow | Flag → Review → Approve/Reject |
 
-    **API surface:** `/api/documents/:id/classify`, `/api/categories`, `/api/tags`
-
     ---
 
     ### Sprint 4 — Bank Matching
@@ -84,8 +82,6 @@
     | Matching Engine | Rule-based + fuzzy matching on amount + date + vendor |
     | Reconciliation | Matched / Unmatched / Partial states |
 
-    **API surface:** `/api/transactions`, `/api/matching`
-
     ---
 
     ### Sprint 5 — Reporting
@@ -98,16 +94,12 @@
     | Dashboard | Aggregated KPIs: totals, pending counts, match rate |
     | Financial Reports | Period-based reports by type, vendor, category |
     | Search | Full-text + filter across documents and transactions |
-    | Export | CSV and PDF export for reports |
-
-    **API surface:** `/api/reports`, `/api/search`
+    | Export | CSV and PDF export |
 
     ---
 
     ### Sprint 6 — AI
     **Status: Blocked on Sprint 5**
-
-    Augment every step with machine intelligence.
 
     | Item | Description |
     |---|---|
@@ -116,14 +108,10 @@
     | Suggestions | Suggest classification, matching candidates |
     | Validation | Confidence scores; flag low-confidence extractions |
 
-    **API surface:** `/api/ai/extract`, `/api/ai/suggest`
-
     ---
 
     ### Sprint 7 — Beta Hardening
     **Status: Blocked on Sprint 6**
-
-    Production-ready quality gate.
 
     | Item | Description |
     |---|---|
@@ -143,13 +131,4 @@
     ```
 
     Each sprint is fully blocked on the previous. Do not begin a sprint until the prior sprint is committed, pushed, deployed, and verified.
-
-    ---
-
-    ## Roadmap Rules
-
-    - This document must be updated at the end of every sprint.
-    - Do not mark a sprint complete without a commit + push + deployment verification.
-    - Do not skip a sprint without documenting the reason and the architectural impact.
-    - The roadmap reflects reality, not aspiration. If a sprint is incomplete, say so.
     
