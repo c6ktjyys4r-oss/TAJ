@@ -54,6 +54,9 @@ interface AiSettingsRow {
   process_after_upload: boolean;
   temperature:          number;
   max_tokens:           number;
+  timeout_ms:           number;
+  max_retries:          number;
+  parallel_workers:     number;
 }
 
 /** Load AI settings from the database and return a provider config. */
@@ -64,7 +67,10 @@ export async function loadProviderConfig(pool: Pool): Promise<{
   const { rows } = await pool.query<AiSettingsRow>(
     `SELECT enabled, provider, model, api_key_encrypted, base_url,
             confidence_threshold, approval_policy, process_after_upload,
-            temperature, max_tokens
+            temperature, max_tokens,
+            COALESCE(timeout_ms, 30000)       AS timeout_ms,
+            COALESCE(max_retries, 3)          AS max_retries,
+            COALESCE(parallel_workers, 3)     AS parallel_workers
        FROM ai_settings WHERE id = 1`,
   );
 
@@ -73,6 +79,7 @@ export async function loadProviderConfig(pool: Pool): Promise<{
     api_key_encrypted: null, base_url: null,
     confidence_threshold: 90, approval_policy: 'review', process_after_upload: false,
     temperature: 0.1, max_tokens: 1024,
+    timeout_ms: 30_000, max_retries: 3, parallel_workers: 3,
   };
 
   const config: AiProviderConfig = {
@@ -80,8 +87,9 @@ export async function loadProviderConfig(pool: Pool): Promise<{
     model:       row.model,
     apiKey:      row.api_key_encrypted,
     baseUrl:     row.base_url,
-    temperature: Number(row.temperature) || 0.1,
-    maxTokens:   Number(row.max_tokens)  || 1024,
+    temperature: Number(row.temperature)      || 0.1,
+    maxTokens:   Number(row.max_tokens)       || 1024,
+    timeoutMs:   Number(row.timeout_ms)       || 30_000,
   };
 
   return { config, settings: row };

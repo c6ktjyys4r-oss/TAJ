@@ -331,6 +331,7 @@ export class OpenAiProvider implements AiProvider {
   private readonly baseUrl:     string;
   private readonly temperature: number;
   private readonly maxTokens:   number;
+  private readonly timeoutMs:   number;
 
   constructor(config: AiProviderConfig) {
     if (!config.apiKey) throw new AiError('AUTH_ERROR', 'OpenAI API key is required');
@@ -339,6 +340,7 @@ export class OpenAiProvider implements AiProvider {
     this.baseUrl      = (config.baseUrl ?? DEFAULT_BASE).replace(/\/$/, '');
     this.temperature  = Math.min(2, Math.max(0, config.temperature ?? 0.1));
     this.maxTokens    = Math.min(8192, Math.max(1, config.maxTokens ?? 1024));
+    this.timeoutMs    = config.timeoutMs > 0 ? config.timeoutMs : 30_000;
   }
 
   async initialize(): Promise<void> {
@@ -398,7 +400,7 @@ export class OpenAiProvider implements AiProvider {
           'Content-Type':  'application/json',
         },
         body:   JSON.stringify(reqBody),
-        signal: AbortSignal.timeout(TIMEOUT_MS),
+        signal: AbortSignal.timeout(this.timeoutMs),
       });
 
       if (resp.status === 401 || resp.status === 403) {
@@ -427,7 +429,7 @@ export class OpenAiProvider implements AiProvider {
       if (err instanceof AiError) throw err;
       const name = (err as Error).name;
       if (name === 'AbortError' || name === 'TimeoutError') {
-        throw new AiError('TIMEOUT', `OpenAI request timed out after ${TIMEOUT_MS / 1000}s`);
+        throw new AiError('TIMEOUT', `OpenAI request timed out after ${this.timeoutMs / 1000}s`);
       }
       throw new AiError('PROVIDER_OFFLINE', (err as Error).message ?? 'Network error');
     }
@@ -445,7 +447,7 @@ export class OpenAiProvider implements AiProvider {
         'Content-Type':  'application/json',
       },
       body:   JSON.stringify({ model: this.model, messages, temperature: this.temperature }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (!resp.ok) {
@@ -467,7 +469,7 @@ export class OpenAiProvider implements AiProvider {
         'Content-Type':  'application/json',
       },
       body:   JSON.stringify({ model: 'text-embedding-3-small', input: text }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: AbortSignal.timeout(this.timeoutMs),
     });
 
     if (!resp.ok) {

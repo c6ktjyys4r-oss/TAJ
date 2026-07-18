@@ -42,6 +42,9 @@ interface LocalSettings {
   base_url:              string;
   temperature:           number;   // 0.0–2.0
   max_tokens:            number;   // 1–8192
+  timeout_ms:            number;   // provider API call timeout in ms
+  max_retries:           number;   // max retry attempts per failed job
+  parallel_workers:      number;   // max concurrent AI jobs
   confidence_threshold:  number;
   approval_policy:       ApprovalPolicy;
   policy_category:       FieldPolicy;
@@ -87,6 +90,7 @@ const DEFAULT: LocalSettings = {
   enabled: false, process_after_upload: false, assistant_enabled: true,
   provider: 'openai', model: 'gpt-4o-mini', api_key: '', api_key_set: false, base_url: '',
   temperature: 0.1, max_tokens: 1024,
+  timeout_ms: 30_000, max_retries: 3, parallel_workers: 3,
   confidence_threshold: 90, approval_policy: 'review',
   policy_category: 'review', policy_branch: 'review', policy_invoice_date: 'review',
   policy_invoice_number: 'review', policy_supplier: 'review', policy_tax: 'review', policy_currency: 'review',
@@ -169,6 +173,9 @@ export const AiSettings: React.FC = () => {
         base_url:              data.base_url ?? '',
         temperature:           data.temperature ?? 0.1,
         max_tokens:            data.max_tokens ?? 1024,
+        timeout_ms:            data.timeout_ms ?? 30_000,
+        max_retries:           data.max_retries ?? 3,
+        parallel_workers:      data.parallel_workers ?? 3,
         confidence_threshold:  data.confidence_threshold,
         approval_policy:       data.approval_policy,
         policy_category:       data.policy_category,
@@ -212,6 +219,9 @@ export const AiSettings: React.FC = () => {
         base_url:              settings.base_url.trim() || null,
         temperature:           settings.temperature,
         max_tokens:            settings.max_tokens,
+        timeout_ms:            settings.timeout_ms,
+        max_retries:           settings.max_retries,
+        parallel_workers:      settings.parallel_workers,
         confidence_threshold:  settings.confidence_threshold,
         approval_policy:       settings.approval_policy,
         policy_category:       settings.policy_category,
@@ -420,6 +430,60 @@ export const AiSettings: React.FC = () => {
               onChange={(e) => set('max_tokens', Math.min(8192, Math.max(1, Math.round(Number(e.target.value)))))}
               className="w-24 h-8 rounded-lg border border-border px-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-gold-400"
               aria-label="Max tokens"
+            />
+          </div>
+
+          {/* Timeout */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink-primary">Timeout</p>
+              <p className="text-xs text-ink-muted mt-0.5">Provider API call timeout in milliseconds (1 000–300 000)</p>
+            </div>
+            <input
+              type="number"
+              min={1000}
+              max={300000}
+              step={1000}
+              value={settings.timeout_ms}
+              onChange={(e) => set('timeout_ms', Math.min(300_000, Math.max(1_000, Math.round(Number(e.target.value)))))}
+              className="w-28 h-8 rounded-lg border border-border px-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-gold-400"
+              aria-label="Timeout in milliseconds"
+            />
+          </div>
+
+          {/* Max Retries */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink-primary">Max Retries</p>
+              <p className="text-xs text-ink-muted mt-0.5">Retry attempts per failed AI job (0 = no retries, max 10)</p>
+            </div>
+            <input
+              type="number"
+              min={0}
+              max={10}
+              step={1}
+              value={settings.max_retries}
+              onChange={(e) => set('max_retries', Math.min(10, Math.max(0, Math.round(Number(e.target.value)))))}
+              className="w-24 h-8 rounded-lg border border-border px-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-gold-400"
+              aria-label="Max retries"
+            />
+          </div>
+
+          {/* Parallel Workers */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink-primary">Parallel Workers</p>
+              <p className="text-xs text-ink-muted mt-0.5">Maximum concurrent AI jobs in this process (1–20)</p>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={20}
+              step={1}
+              value={settings.parallel_workers}
+              onChange={(e) => set('parallel_workers', Math.min(20, Math.max(1, Math.round(Number(e.target.value)))))}
+              className="w-24 h-8 rounded-lg border border-border px-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-gold-400"
+              aria-label="Parallel workers"
             />
           </div>
 
