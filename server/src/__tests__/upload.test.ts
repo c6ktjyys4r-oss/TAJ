@@ -126,7 +126,7 @@
         .attach('file', fakePdf, { filename: 'r.pdf', contentType: 'application/pdf' });
 
       const queries = mockClient.query.mock.calls
-        .map(([sql]: [string]) => sql?.toString?.() ?? '')
+        .map(([sql]: unknown[]) => sql?.toString?.() ?? '')
         .filter(s => s.includes('INSERT'));
 
       expect(queries[0]).toContain('document_files');   // file row first
@@ -153,7 +153,7 @@
 
       // Find the INSERT INTO documents call and inspect the file_size parameter
       const docInsert = mockClient.query.mock.calls.find(
-        ([sql]: [string]) => typeof sql === 'string' && sql.includes('INSERT INTO documents'),
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.includes('INSERT INTO documents'),
       );
       expect(docInsert).toBeDefined();
       const fileSizeParam = (docInsert![1] as unknown[])[2]; // $3 in INSERT params
@@ -179,7 +179,7 @@
         .attach('file', fakePdf, { filename: 'r.pdf', contentType: 'application/pdf' });
 
       const updateCall = mockClient.query.mock.calls.find(
-        ([sql]: [string]) => typeof sql === 'string' && sql.includes('UPDATE documents'),
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.includes('UPDATE documents'),
       );
       expect(updateCall).toBeDefined();
       const fileSizeParam = (updateCall![1] as unknown[])[2]; // $3 in UPDATE params
@@ -215,7 +215,7 @@
 
       // ROLLBACK must have been issued
       const rollbackCall = mockClient.query.mock.calls.find(
-        ([sql]: [string]) => typeof sql === 'string' && sql.toUpperCase() === 'ROLLBACK',
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.toUpperCase() === 'ROLLBACK',
       );
       expect(rollbackCall).toBeDefined();
       expect(mockClient.release).toHaveBeenCalledOnce();
@@ -331,16 +331,16 @@
 
       // Old file deleted inside the same transaction (before COMMIT)
       const dels = mockClient.query.mock.calls.filter(
-        ([sql]: [string]) => typeof sql === 'string' && sql.includes('DELETE FROM document_files'),
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.includes('DELETE FROM document_files'),
       );
       expect(dels).toHaveLength(1);
       expect(dels[0][1]).toEqual(['file-old']);
 
       const commitIdx = mockClient.query.mock.calls.findIndex(
-        ([sql]: [string]) => typeof sql === 'string' && sql.toUpperCase() === 'COMMIT',
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.toUpperCase() === 'COMMIT',
       );
       const delIdx = mockClient.query.mock.calls.findIndex(
-        ([sql, params]: [string, string[]]) =>
+        ([sql, params]: unknown[]) =>
           typeof sql === 'string' &&
           sql.includes('DELETE FROM document_files') &&
           Array.isArray(params) && params[0] === 'file-old',
@@ -365,7 +365,7 @@
 
       expect(r.status).toBe(200);
       const dels = mockClient.query.mock.calls.filter(
-        ([sql]: [string]) => typeof sql === 'string' && sql.includes('DELETE FROM document_files'),
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.includes('DELETE FROM document_files'),
       );
       expect(dels).toHaveLength(0);
     });
@@ -478,7 +478,7 @@
       const r = await request(app).delete('/api/documents/doc-del');
       expect(r.status).toBe(204);
 
-      const queries = mockClient.query.mock.calls.map(([sql]: [string]) => sql?.toString?.() ?? '');
+      const queries = mockClient.query.mock.calls.map(([sql]: unknown[]) => sql?.toString?.() ?? '');
       const beginIdx  = queries.findIndex(s => s.toUpperCase() === 'BEGIN');
       const commitIdx = queries.findIndex(s => s.toUpperCase() === 'COMMIT');
       const docDelIdx  = queries.findIndex(s => s.includes('DELETE FROM documents'));
@@ -512,7 +512,7 @@
       expect(r.status).toBe(204);
 
       const fileDelCalls = mockClient.query.mock.calls.filter(
-        ([sql]: [string]) => typeof sql === 'string' && sql.includes('DELETE FROM document_files'),
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.includes('DELETE FROM document_files'),
       );
       expect(fileDelCalls).toHaveLength(0);
     });
@@ -545,7 +545,7 @@
       expect(r.body.error).toBe('INTERNAL_SERVER_ERROR');
 
       const rollbackCall = mockClient.query.mock.calls.find(
-        ([sql]: [string]) => typeof sql === 'string' && sql.toUpperCase() === 'ROLLBACK',
+        ([sql]: unknown[]) => typeof sql === 'string' && sql.toUpperCase() === 'ROLLBACK',
       );
       expect(rollbackCall).toBeDefined();
       expect(mockClient.release).toHaveBeenCalledOnce();
