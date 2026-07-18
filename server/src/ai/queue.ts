@@ -2,9 +2,9 @@
  * Background queue worker for AI document processing.
  *
  * Provides:
- *   - Concurrency limiting  — at most MAX_CONCURRENT_JOBS jobs run simultaneously
+ *   - Concurrency limiting  — at most maxConcurrentJobs jobs run simultaneously (configurable)
  *   - Rate limiting          — minimum interval between job starts (RATE_LIMIT_MS)
- *   - Automatic retry        — up to MAX_ATTEMPTS on failure with exponential backoff
+ *   - Automatic retry        — up to maxAttempts on failure with exponential backoff
  *   - Job cancellation       — cancel pending or in-progress jobs by documentId
  *   - Progress visibility    — job status is always kept current in ai_document_jobs
  *   - Non-blocking           — addToQueue() returns immediately; never delays uploads
@@ -15,23 +15,32 @@
  *   queue.ts    → (nothing from pipeline)
  *
  * Retry semantics:
- *   A failed job is re-enqueued up to (MAX_ATTEMPTS − 1) extra times.
+ *   A failed job is re-enqueued up to (maxAttempts − 1) extra times.
+ *   DB status is set to 'retry' while the backoff delay is in progress.
  *   Each retry waits BACKOFF_MS[attempt−1] before re-entering the queue.
  *   Cancellation is checked before each retry so cancelled jobs stop immediately.
+ *
+ * Status lifecycle:
+ *   pending → processing → completed   (happy path)
+ *   pending → processing → failed      (no retries remaining)
+ *   pending → processing → retry       (backoff in progress)
+ *   retry   → processing → completed   (retry succeeded)
+ *   pending → cancelled               (cancelled while pending)
+ *   processing → cancelled            (cancelled during run — suppresses retry)
  */
 import type { Pool } from 'pg';
 import { logger }    from '../logger';
 
-// ── Configuration ─────────────────────────────────────────────────────────────
+// ── Configuration (runtime-adjustable via configureQueue) ─────────────────────
 
 /** Maximum AI jobs running simultaneously in this process. */
-const MAX_CONCURRENT_JOBS = 3;
+let maxConcurrentJobs = 3;
 
 /** Minimum milliseconds between consecutive job starts (rate limit). */
 const RATE_LIMIT_MS = 500;
 
-/** Total attempts per document (1 initial + up to MAX_ATTEMPTS−1 retries). */
-const MAX_ATTEMPTS = 3;
+/** Total attempts per document (1 initial + up to maxAttempts−1 retries). */
+let maxAttempts = 3;
 
 /** Backoff delays before each retry attempt: [1st retry, 2nd retry, …]. */
 const BACKOFF_MS: readonly number[] = [2_000, 10_000, 60_000];
@@ -58,6 +67,28 @@ const cancelledIds: Set<string>  = new Set();
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
+ * Adjust runtime queue parameters.
+ *
+ * Called from the AI settings save handler whenever parallel_workers or
+ * max_retries change. Takes effect immediately — in-flight jobs are unaffected;
+ * the new limits apply to the next drain() cycle.
+ */
+export function configureQueue(opts: {
+  maxConcurrent?: number;
+  maxRetries?:    number;
+}): void {
+  if (typeof opts.maxConcurrent === 'number' && opts.maxConcurrent >= 1) {
+    maxConcurrentJobs = Math.min(20, Math.max(1, Math.round(opts.maxConcurrent)));
+    logger.info({ maxConcurrentJobs }, 'AI queue: concurrency reconfigured');
+  }
+  if (typeof opts.maxRetries === 'number' && opts.maxRetries >= 0) {
+    // maxAttempts = 1 initial + maxRetries retries
+    maxAttempts = Math.min(10, Math.max(1, Math.round(opts.maxRetries) + 1));
+    logger.info({ maxAttempts }, 'AI queue: max attempts reconfigured');
+  }
+}
+
+/**
  * Add a document to the processing queue.
  *
  * `runner` is the pipeline function to call (runPipeline from pipeline.ts).
@@ -82,7 +113,7 @@ export function addToQueue(
  *
  * If the job is still pending in the queue it is removed immediately.
  * If it is already running, the flag is noted and any retry is suppressed.
- * The caller is responsible for updating the DB row status.
+ * The caller is responsible for updating the DB row status to 'cancelled'.
  */
 export function cancelJob(documentId: string): void {
   cancelledIds.add(documentId);
@@ -106,8 +137,10 @@ export function getQueueStats(): { running: number; pending: number } {
  * Allows test suites to start with a clean slate between describe blocks.
  */
 export function _resetForTest(): void {
-  runningCount  = 0;
-  lastStartedAt = 0;
+  runningCount      = 0;
+  lastStartedAt     = 0;
+  maxConcurrentJobs = 3;
+  maxAttempts       = 3;
   pendingQueue.splice(0);
   cancelledIds.clear();
 }
@@ -126,13 +159,13 @@ function delay(ms: number): Promise<void> {
  * every async pause, preventing over-commitment of concurrency slots.
  */
 async function drain(): Promise<void> {
-  while (pendingQueue.length > 0 && runningCount < MAX_CONCURRENT_JOBS) {
+  while (pendingQueue.length > 0 && runningCount < maxConcurrentJobs) {
     // Rate limiting: enforce minimum gap between job starts
     const elapsed = Date.now() - lastStartedAt;
     if (elapsed < RATE_LIMIT_MS) {
       await delay(RATE_LIMIT_MS - elapsed);
       // Re-check limits after the pause
-      if (runningCount >= MAX_CONCURRENT_JOBS || pendingQueue.length === 0) break;
+      if (runningCount >= maxConcurrentJobs || pendingQueue.length === 0) break;
     }
 
     const item = pendingQueue.shift();
@@ -145,7 +178,7 @@ async function drain(): Promise<void> {
       try {
         await item.pool.query(
           `UPDATE ai_document_jobs
-             SET status = 'failed', error = 'Job cancelled', updated_at = now()
+             SET status = 'cancelled', error = 'Job cancelled before start', updated_at = now()
            WHERE document_id = $1`,
           [item.documentId],
         );
@@ -196,11 +229,21 @@ async function executeJob(item: QueueItem): Promise<void> {
   if (cancelledIds.has(documentId)) {
     cancelledIds.delete(documentId);
     logger.info({ documentId }, 'AI queue: retry suppressed (cancelled)');
+    try {
+      await pool.query(
+        `UPDATE ai_document_jobs
+           SET status = 'cancelled', error = 'Job cancelled during processing', updated_at = now()
+         WHERE document_id = $1`,
+        [documentId],
+      );
+    } catch (e) {
+      logger.warn({ err: e, documentId }, 'AI queue: failed to persist cancelled status post-run');
+    }
     return;
   }
 
   // Auto-retry if the job failed and attempts remain
-  if (attempt < MAX_ATTEMPTS) {
+  if (attempt < maxAttempts) {
     try {
       const { rows } = await pool.query<{ status: string }>(
         `SELECT status FROM ai_document_jobs WHERE document_id = $1`,
@@ -215,12 +258,26 @@ async function executeJob(item: QueueItem): Promise<void> {
           'AI queue: scheduling retry after backoff',
         );
 
+        // Set status to 'retry' so the UI can show a meaningful state during backoff
+        await pool.query(
+          `UPDATE ai_document_jobs
+             SET status = 'retry', updated_at = now()
+           WHERE document_id = $1`,
+          [documentId],
+        );
+
         await delay(backoff);
 
         // Re-check cancellation after backoff
         if (cancelledIds.has(documentId)) {
           cancelledIds.delete(documentId);
           logger.info({ documentId }, 'AI queue: retry cancelled during backoff');
+          await pool.query(
+            `UPDATE ai_document_jobs
+               SET status = 'cancelled', error = 'Job cancelled during retry backoff', updated_at = now()
+             WHERE document_id = $1`,
+            [documentId],
+          );
           return;
         }
 

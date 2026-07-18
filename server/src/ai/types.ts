@@ -14,6 +14,7 @@ export interface AiProviderConfig {
   baseUrl:     string | null;
   temperature: number;   // 0.0–2.0; 0.1 default for deterministic extraction
   maxTokens:   number;   // 1–8192; 1024 default
+  timeoutMs:   number;   // provider API call timeout in ms; 30 000 default
 }
 
 // ── Extraction ────────────────────────────────────────────────────────────────
