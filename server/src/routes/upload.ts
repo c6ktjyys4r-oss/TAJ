@@ -1,8 +1,9 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
-import { pool } from '../db/index';
-import { AppError } from '../middleware/errorHandler';
-import { logger } from '../logger';
+import { pool }            from '../db/index';
+import { AppError }        from '../middleware/errorHandler';
+import { logger }          from '../logger';
+import { queueDocument, loadProviderConfig } from '../ai';
 
 const router = Router();
 
@@ -192,6 +193,21 @@ router.post(
 
         await client.query('COMMIT');
         res.status(201).json({ document: created, file: fileInfo });
+
+        // ── AI pipeline trigger ───────────────────────────────────────────────
+        // Fire and forget — upload response has already been sent.
+        // loadProviderConfig + queueDocument both use pool (not the released client).
+        const newDocId = (created as Record<string, unknown>).id as string;
+        void (async () => {
+          try {
+            const { settings } = await loadProviderConfig(pool);
+            if (settings.enabled && settings.process_after_upload) {
+              await queueDocument(newDocId, pool);
+            }
+          } catch {
+            // Never propagate — upload succeeded regardless of AI availability
+          }
+        })();
       }
     } catch (err) {
       await client.query('ROLLBACK').catch(() => { /* ignore rollback errors */ });

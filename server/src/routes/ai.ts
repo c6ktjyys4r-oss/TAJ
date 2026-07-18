@@ -10,10 +10,10 @@
  *   The frontend receives only api_key_set: boolean.
  */
 import { Router, Request, Response, NextFunction } from 'express';
-import { pool }                       from '../db/index';
-import { AppError }                   from '../middleware/errorHandler';
-import { logger }                     from '../logger';
-import { createProvider, loadProviderConfig } from '../ai';
+import { pool }                                         from '../db/index';
+import { AppError }                                     from '../middleware/errorHandler';
+import { logger }                                       from '../logger';
+import { createProvider, loadProviderConfig, queueDocument } from '../ai';
 
 const router = Router();
 
@@ -164,5 +164,184 @@ router.post('/settings/test-connection', async (_req: Request, res: Response, ne
     next(err);
   }
 });
+
+// ── GET /api/ai/documents/:id ─────────────────────────────────────────────────
+
+router.get('/documents/:id', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { rows } = await pool.query<Record<string, unknown>>(
+      `SELECT id, document_id, status, result, error, attempts, created_at, updated_at
+         FROM ai_document_jobs WHERE document_id = $1`,
+      [id],
+    );
+    if (rows.length === 0) {
+      res.json(null);
+      return;
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/ai/documents/:id/retry ─────────────────────────────────────────
+
+router.post('/documents/:id/retry', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    // Verify the document exists
+    const { rows: docRows } = await pool.query<{ id: string }>(
+      'SELECT id FROM documents WHERE id = $1', [id],
+    );
+    if (docRows.length === 0) {
+      throw new AppError(404, 'DOCUMENT_NOT_FOUND', `Document ${id} not found`);
+    }
+
+    // Re-queue (queueDocument does an upsert → resets to pending)
+    await queueDocument(id, pool);
+
+    const { rows } = await pool.query<Record<string, unknown>>(
+      'SELECT * FROM ai_document_jobs WHERE document_id = $1', [id],
+    );
+    res.json(rows[0] ?? null);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/ai/documents/:id/accept ────────────────────────────────────────
+
+router.post('/documents/:id/accept', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id }    = req.params;
+    const { fields } = req.body as { fields?: string[] };
+
+    await acceptOrReject(id, fields ?? [], 'accepted', pool);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/ai/documents/:id/reject ────────────────────────────────────────
+
+router.post('/documents/:id/reject', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id }    = req.params;
+    const { fields } = req.body as { fields?: string[] };
+
+    await acceptOrReject(id, fields ?? [], 'rejected', pool);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Accept / reject helper ────────────────────────────────────────────────────
+
+const EXTRACTABLE_FIELDS = new Set([
+  'supplier', 'invoice_number', 'invoice_date', 'currency',
+  'subtotal', 'vat', 'total', 'document_type', 'summary',
+]);
+
+async function acceptOrReject(
+  documentId: string,
+  fields:     string[],
+  action:     'accepted' | 'rejected',
+  pool_:      typeof pool,
+): Promise<void> {
+  const { rows } = await pool_.query<{ result: Record<string, unknown> | null }>(
+    'SELECT result FROM ai_document_jobs WHERE document_id = $1 AND status = $2',
+    [documentId, 'completed'],
+  );
+
+  if (rows.length === 0 || !rows[0].result) {
+    throw new AppError(404, 'AI_JOB_NOT_FOUND',
+      `No completed AI job found for document ${documentId}`);
+  }
+
+  const result = rows[0].result as Record<string, Record<string, unknown>>;
+  const targetFields = fields.length > 0
+    ? fields.filter((f) => EXTRACTABLE_FIELDS.has(f))
+    : [...EXTRACTABLE_FIELDS];
+
+  // When accepting a field, apply its value to the document
+  const directSets: { col: string; val: string }[]  = [];
+  const metaSets:   { key: string; val: string }[]  = [];
+
+  const FIELD_MAP: Record<string, { col: string; meta?: string }> = {
+    supplier:       { col: 'vendor'    },
+    invoice_number: { col: 'metadata', meta: 'invoice_number' },
+    invoice_date:   { col: 'date'      },
+    currency:       { col: 'currency'  },
+    subtotal:       { col: 'metadata', meta: 'subtotal' },
+    vat:            { col: 'metadata', meta: 'vat'      },
+    total:          { col: 'amount'    },
+    document_type:  { col: 'type'      },
+    summary:        { col: 'metadata', meta: 'summary'  },
+  };
+
+  const VALID_TYPES = new Set([
+    'invoice', 'receipt', 'bank_statement',
+    'credit_note', 'debit_note', 'po', 'attachment',
+  ]);
+
+  for (const f of targetFields) {
+    const fieldData = result[f];
+    if (!fieldData || fieldData.value == null) continue;
+
+    const value   = String(fieldData.value);
+    const mapping = FIELD_MAP[f];
+    if (!mapping) continue;
+
+    // Update action in result JSON
+    result[f] = { ...fieldData, action };
+
+    if (action === 'accepted') {
+      if (mapping.meta) {
+        metaSets.push({ key: mapping.meta, val: value });
+      } else {
+        // Validate before applying
+        if (mapping.col === 'type' && !VALID_TYPES.has(value)) continue;
+        if (mapping.col === 'amount' && (!/^\d+(\.\d{1,2})?$/.test(value) || parseFloat(value) <= 0)) continue;
+        directSets.push({ col: mapping.col, val: value });
+      }
+    }
+  }
+
+  // Apply accepted values to the document
+  if (action === 'accepted' && (directSets.length > 0 || metaSets.length > 0)) {
+    const setClauses: string[] = ['updated_at = now()'];
+    const params: unknown[]    = [documentId];
+    let p = 2;
+
+    for (const { col, val } of directSets) {
+      setClauses.push(`${col} = ${p++}`);
+      params.push(val);
+    }
+    if (metaSets.length > 0) {
+      let jsonbExpr = 'COALESCE(metadata, \'{}\'::jsonb)';
+      for (const { key, val } of metaSets) {
+        jsonbExpr = `jsonb_set(${jsonbExpr}, '{${key}}', ${p++}::jsonb)`;
+        params.push(JSON.stringify(val));
+      }
+      setClauses.push(`metadata = ${jsonbExpr}`);
+    }
+
+    await pool_.query(
+      `UPDATE documents SET ${setClauses.join(', ')} WHERE id = $1`, params,
+    );
+
+    logger.info({ documentId, accepted: targetFields }, 'AI suggestions accepted and applied');
+  }
+
+  // Persist the updated result (with action labels)
+  await pool_.query(
+    'UPDATE ai_document_jobs SET result = $2::jsonb, updated_at = now() WHERE document_id = $1',
+    [documentId, JSON.stringify(result)],
+  );
+}
 
 export default router;

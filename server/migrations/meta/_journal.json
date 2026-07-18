@@ -36,6 +36,13 @@
       "when": 1753002000000,
       "tag": "0004_ai_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1753003000000,
+      "tag": "0005_ai_document_jobs",
+      "breakpoints": true
     }
   ]
 }

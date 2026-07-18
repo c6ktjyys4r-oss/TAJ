@@ -6,6 +6,8 @@
  *   import type { AiProvider, ProcessDocumentResult } from '../ai';
  */
 export { createProvider, loadProviderConfig } from './factory';
+export { queueDocument }                      from './pipeline';
+export { applyPolicyDecisions }               from './policy';
 export type {
   AiProvider,
   AiProviderConfig,
@@ -18,3 +20,4 @@ export type {
   AiErrorCode,
 } from './types';
 export { AiError as AiErrorClass } from './types';
+export type { ProcessDocumentResultWithActions, ExtractionFieldWithAction } from './policy';
