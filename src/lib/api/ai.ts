@@ -62,4 +62,12 @@ export const aiSettingsApi = {
       body,
     );
   },
+
+  /** POST /api/ai/documents/:id/cancel — cancel a pending or in-progress AI job. */
+  cancelDocumentJob(documentId: string): Promise<AiJobResponse> {
+    return api.post<AiJobResponse>(
+      `/api/ai/documents/${encodeURIComponent(documentId)}/cancel`,
+      {},
+    );
+  },
 };

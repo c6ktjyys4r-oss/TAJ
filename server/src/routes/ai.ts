@@ -22,7 +22,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { pool }                                         from '../db/index';
 import { AppError }                                     from '../middleware/errorHandler';
 import { logger }                                       from '../logger';
-import { createProvider, loadProviderConfig, queueDocument } from '../ai';
+import { createProvider, loadProviderConfig, queueDocument, cancelJob } from '../ai';
 
 const router = Router();
 
@@ -156,6 +156,21 @@ router.put('/settings', async (req: Request, res: Response, next: NextFunction) 
     if (typeof b.store_prompts   === 'boolean') addParam('store_prompts',   b.store_prompts);
     if (typeof b.store_responses === 'boolean') addParam('store_responses', b.store_responses);
     if (typeof b.max_log_entries === 'number')  addParam('max_log_entries', Math.max(0, Math.round(b.max_log_entries)));
+
+    if (typeof b.temperature === 'number') {
+      const temp = Math.round(b.temperature * 100) / 100;
+      if (temp < 0 || temp > 2) {
+        throw new AppError(400, 'INVALID_TEMPERATURE', 'temperature must be 0.0–2.0');
+      }
+      addParam('temperature', temp);
+    }
+    if (typeof b.max_tokens === 'number') {
+      const maxTok = Math.round(b.max_tokens);
+      if (maxTok < 1 || maxTok > 8192) {
+        throw new AppError(400, 'INVALID_MAX_TOKENS', 'max_tokens must be 1–8192');
+      }
+      addParam('max_tokens', maxTok);
+    }
 
     // ── Update ai_settings ────────────────────────────────────────────────────
     let settingsRow: Record<string, unknown>;
@@ -442,6 +457,39 @@ router.get('/documents/:id', async (req: Request, res: Response, next: NextFunct
       return;
     }
     res.json(rows[0]);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── POST /api/ai/documents/:id/cancel ────────────────────────────────────────
+
+router.post('/documents/:id/cancel', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+
+    const { rows: docRows } = await pool.query<{ id: string }>(
+      'SELECT id FROM documents WHERE id = $1', [id],
+    );
+    if (docRows.length === 0) {
+      throw new AppError(404, 'DOCUMENT_NOT_FOUND', `Document ${id} not found`);
+    }
+
+    // Remove from the in-memory queue and mark as failed if still pending
+    cancelJob(id);
+
+    // Best-effort DB update: mark pending/processing jobs as failed
+    await pool.query(
+      `UPDATE ai_document_jobs
+         SET status = 'failed', error = 'Job cancelled', updated_at = now()
+       WHERE document_id = $1 AND status IN ('pending', 'processing')`,
+      [id],
+    );
+
+    const { rows } = await pool.query<Record<string, unknown>>(
+      'SELECT * FROM ai_document_jobs WHERE document_id = $1', [id],
+    );
+    res.json(rows[0] ?? { document_id: id, status: 'cancelled' });
   } catch (err) {
     next(err);
   }

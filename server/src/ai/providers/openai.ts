@@ -326,15 +326,19 @@ function parseExtractionResult(raw: string): ProcessDocumentResult {
 // ── Provider class ────────────────────────────────────────────────────────────
 
 export class OpenAiProvider implements AiProvider {
-  private readonly apiKey:  string;
-  private readonly model:   string;
-  private readonly baseUrl: string;
+  private readonly apiKey:      string;
+  private readonly model:       string;
+  private readonly baseUrl:     string;
+  private readonly temperature: number;
+  private readonly maxTokens:   number;
 
   constructor(config: AiProviderConfig) {
     if (!config.apiKey) throw new AiError('AUTH_ERROR', 'OpenAI API key is required');
-    this.apiKey  = config.apiKey;
-    this.model   = config.model || 'gpt-4o-mini';
-    this.baseUrl = (config.baseUrl ?? DEFAULT_BASE).replace(/\/$/, '');
+    this.apiKey       = config.apiKey;
+    this.model        = config.model || 'gpt-4o-mini';
+    this.baseUrl      = (config.baseUrl ?? DEFAULT_BASE).replace(/\/$/, '');
+    this.temperature  = Math.min(2, Math.max(0, config.temperature ?? 0.1));
+    this.maxTokens    = Math.min(8192, Math.max(1, config.maxTokens ?? 1024));
   }
 
   async initialize(): Promise<void> {
@@ -381,8 +385,8 @@ export class OpenAiProvider implements AiProvider {
     const reqBody = {
       model:       this.model,
       messages,
-      temperature: 0,
-      max_tokens:  1024,
+      temperature: this.temperature,
+      max_tokens:  this.maxTokens,
     };
 
     let rawText = '';
@@ -440,7 +444,7 @@ export class OpenAiProvider implements AiProvider {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type':  'application/json',
       },
-      body:   JSON.stringify({ model: this.model, messages, temperature: 0.7 }),
+      body:   JSON.stringify({ model: this.model, messages, temperature: this.temperature }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
 

@@ -20,7 +20,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Card, CardHeader } from '../ui/Card';
+import { Card } from '../ui/Card';
 import { Button }           from '../ui/Button';
 import { aiSettingsApi }    from '../../lib/api/ai';
 import { useSettings }      from '../../context/SettingsContext';
@@ -40,6 +40,8 @@ interface LocalSettings {
   api_key:               string;   // empty = "no change", value = update/clear
   api_key_set:           boolean;  // from server — key is stored
   base_url:              string;
+  temperature:           number;   // 0.0–2.0
+  max_tokens:            number;   // 1–8192
   confidence_threshold:  number;
   approval_policy:       ApprovalPolicy;
   policy_category:       FieldPolicy;
@@ -84,6 +86,7 @@ const FIELD_ROWS: { key: keyof LocalSettings; label: string }[] = [
 const DEFAULT: LocalSettings = {
   enabled: false, process_after_upload: false, assistant_enabled: true,
   provider: 'openai', model: 'gpt-4o-mini', api_key: '', api_key_set: false, base_url: '',
+  temperature: 0.1, max_tokens: 1024,
   confidence_threshold: 90, approval_policy: 'review',
   policy_category: 'review', policy_branch: 'review', policy_invoice_date: 'review',
   policy_invoice_number: 'review', policy_supplier: 'review', policy_tax: 'review', policy_currency: 'review',
@@ -164,6 +167,8 @@ export const AiSettings: React.FC = () => {
         api_key:               '',            // never pre-fill — server never returns it
         api_key_set:           data.api_key_set,
         base_url:              data.base_url ?? '',
+        temperature:           data.temperature ?? 0.1,
+        max_tokens:            data.max_tokens ?? 1024,
         confidence_threshold:  data.confidence_threshold,
         approval_policy:       data.approval_policy,
         policy_category:       data.policy_category,
@@ -205,6 +210,8 @@ export const AiSettings: React.FC = () => {
         // Only send api_key if user typed something (empty = "preserve existing")
         ...(settings.api_key !== '' ? { api_key: settings.api_key } : {}),
         base_url:              settings.base_url.trim() || null,
+        temperature:           settings.temperature,
+        max_tokens:            settings.max_tokens,
         confidence_threshold:  settings.confidence_threshold,
         approval_policy:       settings.approval_policy,
         policy_category:       settings.policy_category,
@@ -369,6 +376,51 @@ export const AiSettings: React.FC = () => {
             <p className="text-[11px] text-ink-muted">
               Leave blank to keep the existing key. Clear the saved key by saving with an empty field after clicking the eye icon.
             </p>
+          </div>
+
+          {/* Temperature */}
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-ink-primary">Temperature</label>
+              <span className="text-sm font-semibold text-gold-600 tabular-nums">
+                {settings.temperature.toFixed(2)}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={2}
+              step={0.05}
+              value={settings.temperature}
+              onChange={(e) => set('temperature', parseFloat(e.target.value))}
+              className="w-full accent-gold-500"
+              aria-label="Temperature"
+            />
+            <div className="flex justify-between mt-0.5">
+              <span className="text-[10px] text-ink-muted">0.0 — deterministic</span>
+              <span className="text-[10px] text-ink-muted">2.0 — creative</span>
+            </div>
+            <p className="text-[11px] text-ink-muted">
+              Lower values (≈ 0.1) produce consistent extractions. Raise only for generative tasks.
+            </p>
+          </div>
+
+          {/* Max Tokens */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink-primary">Max Tokens</p>
+              <p className="text-xs text-ink-muted mt-0.5">Upper bound on the provider response length (1–8192)</p>
+            </div>
+            <input
+              type="number"
+              min={1}
+              max={8192}
+              step={1}
+              value={settings.max_tokens}
+              onChange={(e) => set('max_tokens', Math.min(8192, Math.max(1, Math.round(Number(e.target.value)))))}
+              className="w-24 h-8 rounded-lg border border-border px-2 text-sm text-right focus:outline-none focus:ring-2 focus:ring-gold-400"
+              aria-label="Max tokens"
+            />
           </div>
 
           {/* Base URL */}

@@ -8,10 +8,12 @@
 // ── Provider config (loaded from ai_settings row) ────────────────────────────
 
 export interface AiProviderConfig {
-  provider:  'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'ollama';
-  model:     string;
-  apiKey:    string | null;
-  baseUrl:   string | null;
+  provider:    'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'ollama';
+  model:       string;
+  apiKey:      string | null;
+  baseUrl:     string | null;
+  temperature: number;   // 0.0–2.0; 0.1 default for deterministic extraction
+  maxTokens:   number;   // 1–8192; 1024 default
 }
 
 // ── Extraction ────────────────────────────────────────────────────────────────

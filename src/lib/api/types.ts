@@ -204,6 +204,8 @@ export interface AiSettingsResponse {
   store_prompts:         boolean;
   store_responses:       boolean;
   max_log_entries:       number;
+  temperature:           number;    // 0.0–2.0
+  max_tokens:            number;    // 1–8192
   created_at:            string;
   updated_at:            string;
 }
@@ -231,6 +233,8 @@ export interface UpdateAiSettingsBody {
   store_prompts?:         boolean;
   store_responses?:       boolean;
   max_log_entries?:       number;
+  temperature?:           number;
+  max_tokens?:            number;
 }
 
 /** Returned by POST /api/ai/settings/test-connection */

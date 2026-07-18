@@ -39,6 +39,8 @@ interface AiSettingsRow {
   confidence_threshold: number;
   approval_policy:      string;
   process_after_upload: boolean;
+  temperature:          number;
+  max_tokens:           number;
 }
 
 /** Load AI settings from the database and return a provider config. */
@@ -48,7 +50,8 @@ export async function loadProviderConfig(pool: Pool): Promise<{
 }> {
   const { rows } = await pool.query<AiSettingsRow>(
     `SELECT enabled, provider, model, api_key_encrypted, base_url,
-            confidence_threshold, approval_policy, process_after_upload
+            confidence_threshold, approval_policy, process_after_upload,
+            temperature, max_tokens
        FROM ai_settings WHERE id = 1`,
   );
 
@@ -56,13 +59,16 @@ export async function loadProviderConfig(pool: Pool): Promise<{
     enabled: false, provider: 'openai', model: 'gpt-4o-mini',
     api_key_encrypted: null, base_url: null,
     confidence_threshold: 90, approval_policy: 'review', process_after_upload: false,
+    temperature: 0.1, max_tokens: 1024,
   };
 
   const config: AiProviderConfig = {
-    provider: row.provider as AiProviderConfig['provider'],
-    model:    row.model,
-    apiKey:   row.api_key_encrypted,
-    baseUrl:  row.base_url,
+    provider:    row.provider as AiProviderConfig['provider'],
+    model:       row.model,
+    apiKey:      row.api_key_encrypted,
+    baseUrl:     row.base_url,
+    temperature: Number(row.temperature) || 0.1,
+    maxTokens:   Number(row.max_tokens)  || 1024,
   };
 
   return { config, settings: row };
