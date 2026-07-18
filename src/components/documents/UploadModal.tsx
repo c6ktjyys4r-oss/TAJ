@@ -6,6 +6,7 @@ import { Button } from '../ui/Button';
 import { ProgressBar } from '../ui/ProgressBar';
 import { Badge } from '../ui/Badge';
 import { useT } from '../../hooks/useT';
+import { uploadApi } from '../../lib/api';
 
 interface UploadFile {
   id: string;
@@ -62,19 +63,21 @@ export const UploadModal: React.FC<UploadModalProps> = ({ open, onClose }) => {
   const startUpload = () => {
     if (files.length === 0) return;
     const pending = files.filter((f) => f.status === 'pending');
+    let settled = 0;
     pending.forEach((uf) => {
-      setFiles((prev) => prev.map((f) => f.id === uf.id ? { ...f, status: 'uploading' } : f));
-      let progress = 0;
-      const interval = setInterval(() => {
-        progress += Math.random() * 18 + 7;
-        if (progress >= 100) {
-          clearInterval(interval);
+      setFiles((prev) => prev.map((f) => f.id === uf.id ? { ...f, status: 'uploading', progress: 50 } : f));
+      uploadApi.upload({ file: uf.file })
+        .then(() => {
           setFiles((prev) => prev.map((f) => f.id === uf.id ? { ...f, progress: 100, status: 'done' } : f));
-          setAllDone(true);
-        } else {
-          setFiles((prev) => prev.map((f) => f.id === uf.id ? { ...f, progress } : f));
-        }
-      }, 200);
+          settled += 1;
+          if (settled === pending.length) setAllDone(true);
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : 'Upload failed';
+          setFiles((prev) => prev.map((f) => f.id === uf.id ? { ...f, status: 'error', error: msg } : f));
+          settled += 1;
+          if (settled === pending.length) setAllDone(true);
+        });
     });
   };
 
