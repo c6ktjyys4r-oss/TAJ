@@ -436,7 +436,14 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
         </div>
 
         <UploadModal open={uploadOpen} onClose={() => setUploadOpen(false)} />
-        <DocumentDetailPanel doc={selectedDoc} onClose={() => setSelectedDoc(null)} />
+        <DocumentDetailPanel
+          doc={selectedDoc}
+          onClose={() => setSelectedDoc(null)}
+          onDelete={(id) => {
+            setDocs((prev) => prev.filter((d) => d.id !== id));
+            setSelectedDoc(null);
+          }}
+        />
 
         {selected.size > 0 && !reorderMode && (
           <BatchClassifyBar
