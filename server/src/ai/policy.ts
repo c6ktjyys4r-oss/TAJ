@@ -1,7 +1,9 @@
 /**
- * Policy Engine — Phase 5.
+ * Policy Engine.
  *
- * For each extracted field, consults ai_settings to determine whether to:
+ * For each extracted field, consults ai_field_policies (with fallback to
+ * ai_settings columns for legacy rows) to determine whether to:
+ *
  *   automatic  + confidence >= threshold → apply the value to the document
  *   review     (any confidence)          → record as 'suggested', do not apply
  *   suggestion (any confidence)          → record as 'suggested', never apply
@@ -50,7 +52,7 @@ const FIELD_COLUMN_MAP: Record<FieldName, { col: string; meta?: string }> = {
   summary:        { col: 'metadata', meta: 'summary'  },
 };
 
-/** Maps field name → which policy column to read from ai_settings. */
+/** Maps field name → which policy column to read from the settings. */
 const FIELD_POLICY_KEY: Record<FieldName, keyof PolicySettings | 'approval_policy'> = {
   supplier:       'policy_supplier',
   invoice_number: 'policy_invoice_number',
@@ -87,34 +89,105 @@ export interface ProcessDocumentResultWithActions
 /**
  * Evaluate every extracted field against the policy settings and apply
  * automatic values to the document.  Returns the result with action labels.
+ *
+ * Policy is read from ai_field_policies (migration 0006) first.
+ * If that table has no row, falls back to policy columns on ai_settings.
  */
 export async function applyPolicyDecisions(
   documentId: string,
   result:      ProcessDocumentResult,
   pool:        Pool,
 ): Promise<ProcessDocumentResultWithActions> {
-  // Load policy settings
-  const { rows: settingsRows } = await pool.query<PolicySettings>(
-    `SELECT confidence_threshold, approval_policy,
-            policy_category, policy_branch, policy_invoice_date,
-            policy_invoice_number, policy_supplier, policy_tax, policy_currency
-       FROM ai_settings WHERE id = 1`,
-  );
+  // ── Load policy settings ─────────────────────────────────────────────────
+  // Primary source: ai_field_policies (separate table — migration 0006)
+  // Fallback:       ai_settings columns (original implementation)
 
-  const settings = settingsRows[0] ?? {
-    confidence_threshold: 90,
-    approval_policy: 'review',
-    policy_category: 'review', policy_branch: 'review',
-    policy_invoice_date: 'review', policy_invoice_number: 'review',
-    policy_supplier: 'review', policy_tax: 'review', policy_currency: 'review',
-  };
+  let settings: PolicySettings;
+
+  try {
+    const { rows: policyRows } = await pool.query<{
+      policy_category:       string;
+      policy_branch:         string;
+      policy_invoice_date:   string;
+      policy_invoice_number: string;
+      policy_supplier:       string;
+      policy_tax:            string;
+      policy_currency:       string;
+    }>(
+      `SELECT policy_category, policy_branch, policy_invoice_date,
+              policy_invoice_number, policy_supplier, policy_tax, policy_currency
+         FROM ai_field_policies WHERE id = 1`,
+    );
+
+    const { rows: settingsRows } = await pool.query<{
+      confidence_threshold: number;
+      approval_policy:      string;
+      policy_category:       string;
+      policy_branch:         string;
+      policy_invoice_date:   string;
+      policy_invoice_number: string;
+      policy_supplier:       string;
+      policy_tax:            string;
+      policy_currency:       string;
+    }>(
+      `SELECT confidence_threshold, approval_policy,
+              policy_category, policy_branch, policy_invoice_date,
+              policy_invoice_number, policy_supplier, policy_tax, policy_currency
+         FROM ai_settings WHERE id = 1`,
+    );
+
+    const base = settingsRows[0] ?? {
+      confidence_threshold:  90,
+      approval_policy:       'review',
+      policy_category:       'review',
+      policy_branch:         'review',
+      policy_invoice_date:   'review',
+      policy_invoice_number: 'review',
+      policy_supplier:       'review',
+      policy_tax:            'review',
+      policy_currency:       'review',
+    };
+
+    // ai_field_policies overrides per-field values from ai_settings
+    if (policyRows.length > 0) {
+      const p = policyRows[0];
+      settings = {
+        confidence_threshold:  base.confidence_threshold,
+        approval_policy:       base.approval_policy,
+        policy_category:       p.policy_category,
+        policy_branch:         p.policy_branch,
+        policy_invoice_date:   p.policy_invoice_date,
+        policy_invoice_number: p.policy_invoice_number,
+        policy_supplier:       p.policy_supplier,
+        policy_tax:            p.policy_tax,
+        policy_currency:       p.policy_currency,
+      };
+    } else {
+      settings = base;
+    }
+  } catch {
+    // If ai_field_policies doesn't exist yet (pre-migration env), use ai_settings
+    const { rows: settingsRows } = await pool.query<PolicySettings>(
+      `SELECT confidence_threshold, approval_policy,
+              policy_category, policy_branch, policy_invoice_date,
+              policy_invoice_number, policy_supplier, policy_tax, policy_currency
+         FROM ai_settings WHERE id = 1`,
+    );
+    settings = settingsRows[0] ?? {
+      confidence_threshold: 90,
+      approval_policy: 'review',
+      policy_category: 'review', policy_branch: 'review',
+      policy_invoice_date: 'review', policy_invoice_number: 'review',
+      policy_supplier: 'review', policy_tax: 'review', policy_currency: 'review',
+    };
+  }
 
   const threshold = settings.confidence_threshold;
 
   // Columns to UPDATE on the documents row
-  const directSets: { col: string; val: string }[]        = [];
+  const directSets: { col: string; val: string }[] = [];
   // Metadata keys to merge into documents.metadata
-  const metaSets:   { key: string; val: string }[]        = [];
+  const metaSets:   { key: string; val: string }[] = [];
 
   const resultWithActions: ProcessDocumentResultWithActions = {
     ...result,

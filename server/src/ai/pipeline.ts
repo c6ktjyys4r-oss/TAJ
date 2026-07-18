@@ -8,6 +8,7 @@
  *   4. Validate JSON (handled inside the provider)
  *   5. Apply policy engine decisions — may auto-apply fields to the document
  *   6. Persist the AI result in ai_document_jobs
+ *   7. Write an entry to ai_logs (if logging is enabled)
  *
  * Processing is always fire-and-forget: callers use queueDocument() which
  * inserts the job row and starts runPipeline() without awaiting it.
@@ -19,6 +20,7 @@
 import type { Pool } from 'pg';
 import { createProvider, loadProviderConfig } from './factory';
 import { applyPolicyDecisions }              from './policy';
+import { writeAiLog }                        from './logger';
 import { AiErrorClass }                      from './index';
 import { logger }                            from '../logger';
 
@@ -57,6 +59,8 @@ export async function queueDocument(documentId: string, pool: Pool): Promise<voi
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
 async function runPipeline(documentId: string, pool: Pool): Promise<void> {
+  const startedAt = Date.now();
+
   // ── 1. Mark as processing ─────────────────────────────────────────────────
   try {
     await pool.query(
@@ -96,30 +100,48 @@ async function runPipeline(documentId: string, pool: Pool): Promise<void> {
     fileBuffer = row.content;
     mimeType   = row.mime_type;
   } catch (err) {
-    await failJob(documentId, err, pool);
+    await failJob(documentId, err, pool, startedAt, null, null);
     return;
   }
 
   // ── 3. Load settings + create provider ───────────────────────────────────
 
+  let providerName: string = 'openai';
+  let modelName:    string = 'unknown';
   let provider: Awaited<ReturnType<typeof createProvider>>;
 
   try {
     const { config, settings } = await loadProviderConfig(pool);
+    providerName = config.provider;
+    modelName    = config.model;
 
     if (!settings.enabled) {
-      await failJob(documentId, new AiErrorClass('UNKNOWN', 'AI is disabled in settings'), pool);
+      // Log as skipped (AI disabled at processing time)
+      await pool.query(
+        `UPDATE ai_document_jobs
+           SET status = 'failed', error = 'AI is disabled', updated_at = now()
+         WHERE document_id = $1`,
+        [documentId],
+      );
+      await writeAiLog({
+        documentId,
+        provider: providerName,
+        model:    modelName,
+        status:   'skipped',
+        processingTimeMs: Date.now() - startedAt,
+        error: 'AI is disabled in settings',
+      }, pool);
       return;
     }
     if (!config.apiKey) {
-      await failJob(documentId, new AiErrorClass('AUTH_ERROR', 'No API key configured'), pool);
+      await failJob(documentId, new AiErrorClass('AUTH_ERROR', 'No API key configured'), pool, startedAt, providerName, modelName);
       return;
     }
 
     provider = createProvider(config);
     await provider.initialize();
   } catch (err) {
-    await failJob(documentId, err, pool);
+    await failJob(documentId, err, pool, startedAt, providerName, modelName);
     return;
   }
 
@@ -138,9 +160,6 @@ async function runPipeline(documentId: string, pool: Pool): Promise<void> {
     );
 
     // ── 5. Apply policy engine decisions ─────────────────────────────────────
-    // applyPolicyDecisions reads ai_settings, decides per-field action, and
-    // automatically applies fields whose policy is 'automatic' and whose
-    // confidence meets the threshold.  All decisions are logged.
     const resultWithActions = await applyPolicyDecisions(documentId, extractionResult, pool);
 
     // ── 6. Persist the final result ───────────────────────────────────────────
@@ -151,16 +170,33 @@ async function runPipeline(documentId: string, pool: Pool): Promise<void> {
       [documentId, JSON.stringify(resultWithActions)],
     );
 
+    // ── 7. Write AI log entry (best-effort) ───────────────────────────────────
+    await writeAiLog({
+      documentId,
+      provider:         providerName,
+      model:            modelName,
+      response:         extractionResult.raw_response ?? null,
+      status:           'success',
+      processingTimeMs: Date.now() - startedAt,
+    }, pool);
+
     logger.info({ documentId }, 'AI pipeline completed successfully');
 
   } catch (err) {
-    await failJob(documentId, err, pool);
+    await failJob(documentId, err, pool, startedAt, providerName, modelName);
   }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-async function failJob(documentId: string, err: unknown, pool: Pool): Promise<void> {
+async function failJob(
+  documentId:   string,
+  err:          unknown,
+  pool:         Pool,
+  startedAt:    number,
+  provider:     string | null,
+  model:        string | null,
+): Promise<void> {
   let message: string;
   if (err instanceof AiErrorClass) {
     message = `[${err.code}] ${err.message}`;
@@ -181,5 +217,17 @@ async function failJob(documentId: string, err: unknown, pool: Pool): Promise<vo
     );
   } catch (updateErr) {
     logger.error({ updateErr, documentId }, 'Failed to update job to failed status');
+  }
+
+  // Write failure log (best-effort — never throws)
+  if (provider && model) {
+    await writeAiLog({
+      documentId,
+      provider,
+      model,
+      status:           'failed',
+      processingTimeMs: Date.now() - startedAt,
+      error:            message,
+    }, pool);
   }
 }
