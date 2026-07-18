@@ -203,6 +203,24 @@ export const locales: Record<Locale, Record<string, string>> = {
     'upload.error':       'Error',
     'upload.filesOf':     '{done} of {total} file{plural} uploaded',
 
+    // Batch upload defaults
+    'upload.batch.title':               'Batch Defaults',
+    'upload.batch.description':         'Set shared metadata applied to every document in this upload.',
+    'upload.batch.hint':                'These defaults will apply to every document in this batch.',
+    'upload.batch.continue':            'Continue',
+    'upload.batch.back':                'Back',
+    'upload.batch.upload':              'Upload',
+    'upload.batch.optional':            'optional',
+    'upload.batch.branch':              'Default Branch',
+    'upload.batch.branch.placeholder':  'e.g. Riyadh HQ',
+    'upload.batch.branch.required':     'Branch is required',
+    'upload.batch.month':               'Accounting Month',
+    'upload.batch.month.required':      'Accounting month is required',
+    'upload.batch.category':            'Default Category',
+    'upload.batch.category.placeholder':'No default — keep as Attachment',
+    'upload.batch.notes':               'Notes',
+    'upload.batch.notes.placeholder':   'Notes shared across all documents in this batch',
+
     // Errors
     'error.title':   'Something went wrong',
     'error.message': 'An unexpected error occurred. The team has been notified.',
@@ -414,6 +432,24 @@ export const locales: Record<Locale, Record<string, string>> = {
     'upload.ready':       '\u062c\u0627\u0647\u0632',
     'upload.error':       '\u062e\u0637\u0623',
     'upload.filesOf':     '\u062a\u0645 \u0631\u0641\u0639 {done} \u0645\u0646 \u0623\u0635\u0644 {total}',
+
+    // Batch upload defaults
+    'upload.batch.title':               '\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0627\u0641\u062a\u0631\u0627\u0636\u064a\u0629 \u0644\u0644\u062f\u0641\u0639\u0629',
+    'upload.batch.description':         '\u062d\u062f\u062f \u0628\u064a\u0627\u0646\u0627\u062a \u0627\u0644\u062a\u0639\u0631\u064a\u0641 \u0627\u0644\u0645\u0634\u062a\u0631\u0643\u0629 \u0644\u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u0633\u062a\u0646\u062f\u0627\u062a \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u062f\u0641\u0639\u0629.',
+    'upload.batch.hint':                '\u0633\u062a\u064f\u0637\u0628\u0651\u0642 \u0647\u0630\u0647 \u0627\u0644\u0625\u0639\u062f\u0627\u062f\u0627\u062a \u0639\u0644\u0649 \u062c\u0645\u064a\u0639 \u0627\u0644\u0645\u0633\u062a\u0646\u062f\u0627\u062a \u0641\u064a \u0647\u0630\u0647 \u0627\u0644\u062f\u0641\u0639\u0629.',
+    'upload.batch.continue':            '\u0645\u062a\u0627\u0628\u0639\u0629',
+    'upload.batch.back':                '\u0631\u062c\u0648\u0639',
+    'upload.batch.upload':              '\u0631\u0641\u0639',
+    'upload.batch.optional':            '\u0627\u062e\u062a\u064a\u0627\u0631\u064a',
+    'upload.batch.branch':              '\u0627\u0644\u0641\u0631\u0639 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a',
+    'upload.batch.branch.placeholder':  '\u0645\u062b\u0627\u0644: \u0627\u0644\u0631\u064a\u0627\u0636 \u0627\u0644\u0631\u0626\u064a\u0633\u064a',
+    'upload.batch.branch.required':     '\u0627\u0644\u0641\u0631\u0639 \u0645\u0637\u0644\u0648\u0628',
+    'upload.batch.month':               '\u0634\u0647\u0631 \u0627\u0644\u0645\u062d\u0627\u0633\u0628\u0629',
+    'upload.batch.month.required':      '\u0634\u0647\u0631 \u0627\u0644\u0645\u062d\u0627\u0633\u0628\u0629 \u0645\u0637\u0644\u0648\u0628',
+    'upload.batch.category':            '\u0627\u0644\u062a\u0635\u0646\u064a\u0641 \u0627\u0644\u0627\u0641\u062a\u0631\u0627\u0636\u064a',
+    'upload.batch.category.placeholder':'\u0628\u062f\u0648\u0646 \u0627\u0641\u062a\u0631\u0627\u0636\u064a \u2014 \u0627\u0644\u0627\u062d\u062a\u0641\u0627\u0638 \u0643\u0645\u0644\u062d\u0642',
+    'upload.batch.notes':               '\u0645\u0644\u0627\u062d\u0638\u0627\u062a',
+    'upload.batch.notes.placeholder':   '\u0645\u0644\u0627\u062d\u0638\u0627\u062a \u0645\u0634\u062a\u0631\u0643\u0629 \u0644\u062c\u0645\u064a\u0639 \u0645\u0633\u062a\u0646\u062f\u0627\u062a \u0647\u0630\u0647 \u0627\u0644\u062f\u0641\u0639\u0629',
 
     // Errors
     'error.title':   '\u062d\u062f\u062b \u062e\u0637\u0623 \u0645\u0627',
