@@ -8,6 +8,7 @@
 export { createProvider, loadProviderConfig } from './factory';
 export { queueDocument }                      from './pipeline';
 export { applyPolicyDecisions }               from './policy';
+export { cancelJob, getQueueStats }           from './queue';
 export type {
   AiProvider,
   AiProviderConfig,

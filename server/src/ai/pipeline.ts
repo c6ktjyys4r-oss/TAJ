@@ -26,7 +26,8 @@ import type { Pool } from 'pg';
 import { createProvider, loadProviderConfig } from './factory';
 import { applyPolicyDecisions }              from './policy';
 import { writeAiLog }                        from './logger';
-import { AiErrorClass }                      from './index';
+import { AiError as AiErrorClass }           from './types';
+import { addToQueue }                        from './queue';
 import { logger }                            from '../logger';
 
 // ── Queue a document for AI processing ───────────────────────────────────────
@@ -50,9 +51,7 @@ export async function queueDocument(documentId: string, pool: Pool): Promise<voi
 
     logger.info({ documentId }, 'AI job queued');
 
-    void runPipeline(documentId, pool).catch((err: unknown) => {
-      logger.error({ err, documentId }, 'Unhandled error in runPipeline (should not reach here)');
-    });
+    addToQueue(documentId, pool, runPipeline);
   } catch (err) {
     logger.error({ err, documentId }, 'Failed to queue AI document job');
   }
@@ -60,7 +59,7 @@ export async function queueDocument(documentId: string, pool: Pool): Promise<voi
 
 // ── Pipeline ──────────────────────────────────────────────────────────────────
 
-async function runPipeline(documentId: string, pool: Pool): Promise<void> {
+export async function runPipeline(documentId: string, pool: Pool): Promise<void> {
   const startedAt = Date.now();
 
   // ── 1. Mark as processing ─────────────────────────────────────────────────
