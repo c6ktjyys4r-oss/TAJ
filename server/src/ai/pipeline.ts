@@ -6,7 +6,7 @@
  *   2. Extract text (PDF) or pass image bytes to the provider
  *   3. Call provider.processDocument() → structured JSON
  *   4. Validate JSON (handled inside the provider)
- *   5. Apply policy engine decisions (Phase 5)
+ *   5. Apply policy engine decisions — may auto-apply fields to the document
  *   6. Persist the AI result in ai_document_jobs
  *
  * Processing is always fire-and-forget: callers use queueDocument() which
@@ -17,10 +17,10 @@
  * Nothing propagates out of runPipeline() — it cannot crash the server.
  */
 import type { Pool } from 'pg';
-import type { ProcessDocumentResult } from './types';
 import { createProvider, loadProviderConfig } from './factory';
-import { AiErrorClass }                        from './index';
-import { logger }                              from '../logger';
+import { applyPolicyDecisions }              from './policy';
+import { AiErrorClass }                      from './index';
+import { logger }                            from '../logger';
 
 // ── Queue a document for AI processing ───────────────────────────────────────
 
@@ -137,15 +137,18 @@ async function runPipeline(documentId: string, pool: Pool): Promise<void> {
       'AI extraction completed',
     );
 
-    // ── 5. Store result (Phase 3: raw storage — policy applied in Phase 5) ───
-    // Mark all fields as 'suggested' — policy engine will update these in Phase 5.
-    const resultToStore = tagAllAsSuggested(extractionResult);
+    // ── 5. Apply policy engine decisions ─────────────────────────────────────
+    // applyPolicyDecisions reads ai_settings, decides per-field action, and
+    // automatically applies fields whose policy is 'automatic' and whose
+    // confidence meets the threshold.  All decisions are logged.
+    const resultWithActions = await applyPolicyDecisions(documentId, extractionResult, pool);
 
+    // ── 6. Persist the final result ───────────────────────────────────────────
     await pool.query(
       `UPDATE ai_document_jobs
          SET status = 'completed', result = $2::jsonb, error = NULL, updated_at = now()
        WHERE document_id = $1`,
-      [documentId, JSON.stringify(resultToStore)],
+      [documentId, JSON.stringify(resultWithActions)],
     );
 
     logger.info({ documentId }, 'AI pipeline completed successfully');
@@ -156,22 +159,6 @@ async function runPipeline(documentId: string, pool: Pool): Promise<void> {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Tag every extracted field as 'suggested' (Phase 3 storage — no auto-apply yet). */
-function tagAllAsSuggested(result: ProcessDocumentResult): Record<string, unknown> {
-  const FIELDS = [
-    'supplier', 'invoice_number', 'invoice_date', 'currency',
-    'subtotal', 'vat', 'total', 'document_type', 'summary',
-  ] as const;
-  const out: Record<string, unknown> = {
-    overall_confidence: result.overall_confidence,
-    raw_response:       result.raw_response,
-  };
-  for (const f of FIELDS) {
-    out[f] = { ...result[f], action: result[f].value !== null ? 'suggested' : 'ignored' };
-  }
-  return out;
-}
 
 async function failJob(documentId: string, err: unknown, pool: Pool): Promise<void> {
   let message: string;
