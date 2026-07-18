@@ -15,6 +15,13 @@
         "when": 1784332500473,
         "tag": "0001_add_document_files",
         "breakpoints": true
+      },
+      {
+        "idx": 2,
+        "version": "7",
+        "when": 1784333200000,
+        "tag": "0002_storage_integrity",
+        "breakpoints": true
       }
     ]
     }

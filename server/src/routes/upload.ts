@@ -51,7 +51,11 @@ import { Router, Request, Response, NextFunction } from 'express';
     *
     * Transactional guarantee: file bytes and document record are written inside a
     * single PostgreSQL transaction. Either both succeed or neither is persisted —
-    * no orphaned files, no orphaned records.
+    * no orphaned files, no orphaned records, no dangling FK references.
+    *
+    * FK ordering: INSERT document_files before INSERT/UPDATE documents so the FK
+    * constraint (documents.file_path → document_files.id) is satisfied at
+    * statement execution time within the transaction.
     */
     router.post(
     '/',
@@ -70,6 +74,8 @@ import { Router, Request, Response, NextFunction } from 'express';
         await client.query('BEGIN');
 
         // ── 1. Store file bytes ────────────────────────────────────────────────
+        // document_files is inserted FIRST so the FK reference is valid when
+        // the documents row is inserted/updated in step 2 or 3.
         const { rows: [fileRow] } = await client.query<{ id: string }>(
           `INSERT INTO document_files (file_name, mime_type, file_size, content)
            VALUES ($1, $2, $3, $4)
@@ -102,6 +108,9 @@ import { Router, Request, Response, NextFunction } from 'express';
           const previousKey = existing.file_path;
 
           // ── 2b. Update document record ───────────────────────────────────────
+          // FK check: storageKey must exist in document_files — it does (step 1).
+          // UNIQUE check: storageKey must not be referenced by another document — it cannot
+          // be, since it was just inserted and no other document has had time to claim it.
           const { rows: [updated] } = await client.query(
             `UPDATE documents
                SET file_path  = $1,
@@ -111,10 +120,12 @@ import { Router, Request, Response, NextFunction } from 'express';
                    updated_at = now()
              WHERE id = $5
              RETURNING *`,
-            [storageKey, file.originalname, String(file.size), file.mimetype, documentId],
+            [storageKey, file.originalname, file.size, file.mimetype, documentId],
           );
 
-          // ── 2c. Delete the superseded file bytes in the same transaction ─────
+          // ── 2c. Delete superseded file bytes in the same transaction ─────────
+          // Runs after the UPDATE so the documents row no longer references the old
+          // storageKey — the FK is already satisfied before this DELETE fires.
           if (previousKey) {
             await client.query('DELETE FROM document_files WHERE id = $1', [previousKey]);
             logger.info({ documentId, previousKey, storageKey }, 'Replaced stored file');
@@ -128,7 +139,7 @@ import { Router, Request, Response, NextFunction } from 'express';
             `INSERT INTO documents (type, status, file_path, file_name, file_size, mime_type)
              VALUES ('attachment', 'uploaded', $1, $2, $3, $4)
              RETURNING *`,
-            [storageKey, file.originalname, String(file.size), file.mimetype],
+            [storageKey, file.originalname, file.size, file.mimetype],
           );
 
           await client.query('COMMIT');
