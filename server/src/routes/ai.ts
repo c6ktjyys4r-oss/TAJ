@@ -10,9 +10,10 @@
  *   The frontend receives only api_key_set: boolean.
  */
 import { Router, Request, Response, NextFunction } from 'express';
-import { pool } from '../db/index';
-import { AppError } from '../middleware/errorHandler';
-import { logger } from '../logger';
+import { pool }                       from '../db/index';
+import { AppError }                   from '../middleware/errorHandler';
+import { logger }                     from '../logger';
+import { createProvider, loadProviderConfig } from '../ai';
 
 const router = Router();
 
@@ -139,63 +140,26 @@ router.put('/settings', async (req: Request, res: Response, next: NextFunction) 
 // ── POST /api/ai/settings/test-connection ─────────────────────────────────────
 
 /**
- * Tests connectivity to the configured AI provider.
- * Phase 1: directly tests OpenAI /v1/models endpoint.
- *          Other providers return a "not yet implemented" error.
- * Phase 2 will refactor this through the provider abstraction.
+ * Tests connectivity to the configured AI provider via the provider abstraction.
+ * Phase 2: routes through createProvider() → provider.healthCheck().
  */
 router.post('/settings/test-connection', async (_req: Request, res: Response, next: NextFunction) => {
   try {
-    const { rows } = await pool.query<Record<string, unknown>>(
-      'SELECT provider, model, api_key_encrypted, base_url FROM ai_settings WHERE id = 1',
-    );
+    const { config, settings } = await loadProviderConfig(pool);
 
-    if (rows.length === 0) {
-      res.json({ ok: false, error: 'AI settings not found.' });
+    if (!settings.enabled) {
+      res.json({ ok: false, error: 'AI is disabled. Enable it in General settings first.' });
       return;
     }
-
-    const row = rows[0];
-    const provider = row.provider as string;
-    const apiKey   = row.api_key_encrypted as string | null;
-
-    if (!apiKey) {
+    if (!config.apiKey) {
       res.json({ ok: false, error: 'No API key configured. Save an API key first.' });
       return;
     }
 
-    if (provider !== 'openai') {
-      res.json({
-        ok: false,
-        error: `Provider "${provider}" connectivity test is not yet implemented.`,
-      });
-      return;
-    }
-
-    const baseUrl = (row.base_url as string | null) ?? 'https://api.openai.com';
-    const start   = Date.now();
-
-    try {
-      const resp = await fetch(`${baseUrl}/v1/models`, {
-        method: 'GET',
-        headers: { Authorization: `Bearer ${apiKey}` },
-        signal: AbortSignal.timeout(10_000),
-      });
-
-      const latencyMs = Date.now() - start;
-
-      if (resp.ok) {
-        res.json({ ok: true, latencyMs });
-      } else {
-        const body = await resp.json().catch(() => ({})) as { error?: { message?: string } };
-        const msg  = body?.error?.message ?? `HTTP ${resp.status}`;
-        res.json({ ok: false, latencyMs, error: msg });
-      }
-    } catch (fetchErr) {
-      const latencyMs = Date.now() - start;
-      const msg = fetchErr instanceof Error ? fetchErr.message : 'Connection failed';
-      res.json({ ok: false, latencyMs, error: msg });
-    }
+    const provider = createProvider(config);
+    await provider.initialize();
+    const result = await provider.healthCheck();
+    res.json(result);
   } catch (err) {
     next(err);
   }
