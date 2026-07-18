@@ -14,7 +14,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, FileText, FileSpreadsheet, File, Tag,
   ChevronLeft, ChevronRight, Loader2, GitBranch,
-  Plus, Trash2, Layers,
+  Plus, Trash2, Layers, Calendar, Hash, AlignLeft,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { Badge }           from '../ui/Badge';
@@ -68,6 +68,10 @@ export interface RowPatch {
   type?:        string;
   rawType?:     DocumentType;
   rawMetadata?: Record<string, unknown>;
+  /** Display date string (shown in the list row). */
+  date?:        string;
+  /** Raw YYYY-MM-DD from documents.date; null when unset. */
+  rawDate?:     string | null;
 }
 
 // ── Allocation draft row ──────────────────────────────────────────────────────
@@ -461,6 +465,7 @@ interface PreviewPanelProps {
   rawType:      DocumentType;
   rawMetadata:  Record<string, unknown>;
   rawAmount:    string | null;
+  rawDate:      string | null;
   hasPrev:      boolean;
   hasNext:      boolean;
   onPrev:       () => void;
@@ -470,14 +475,39 @@ interface PreviewPanelProps {
 }
 
 export const PreviewPanel: React.FC<PreviewPanelProps> = ({
-  doc, rawType, rawMetadata, rawAmount,
+  doc, rawType, rawMetadata, rawAmount, rawDate,
   hasPrev, hasNext, onPrev, onNext,
   onClose, onRowUpdated,
 }) => {
+  // ── Derived current values from props ──────────────────────────────────────
+  const currentBranch = typeof rawMetadata.branch === 'string' ? rawMetadata.branch : '';
+  const currentRef    = typeof rawMetadata.reference_number === 'string' ? rawMetadata.reference_number : '';
+  const currentNotes  = typeof rawMetadata.notes === 'string' ? rawMetadata.notes : '';
+
+  // ── Saving flags ───────────────────────────────────────────────────────────
   const [savingCategory, setSavingCategory] = useState(false);
   const [savingBranch,   setSavingBranch]   = useState(false);
+  const [savingDate,     setSavingDate]     = useState(false);
+  const [savingRef,      setSavingRef]      = useState(false);
+  const [savingNotes,    setSavingNotes]    = useState(false);
 
-  const currentBranch = typeof rawMetadata.branch === 'string' ? rawMetadata.branch : '';
+  // ── Local editable state — reset when doc.id changes (Prev / Next) ─────────
+  const [localDate,  setLocalDate]  = useState(rawDate  ?? '');
+  const [localRef,   setLocalRef]   = useState(currentRef);
+  const [localNotes, setLocalNotes] = useState(currentNotes);
+
+  useEffect(() => {
+    setLocalDate(rawDate ?? '');
+    setLocalRef(
+      typeof rawMetadata.reference_number === 'string' ? rawMetadata.reference_number : ''
+    );
+    setLocalNotes(
+      typeof rawMetadata.notes === 'string' ? rawMetadata.notes : ''
+    );
+  // Intentionally depend only on doc.id so mid-edit state isn't clobbered
+  // when a sibling field saves and rawMetadata flows back via onRowUpdated.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.id]);
 
   // ── Auto-save: category ───────────────────────────────────────────────────
 
@@ -515,6 +545,66 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
       toast.error(msg);
     } finally {
       setSavingBranch(false);
+    }
+  };
+
+  // ── Auto-save: date (documents.date, YYYY-MM-DD) ──────────────────────────
+
+  const handleDateChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value; // '' when cleared
+    setLocalDate(newDate);
+    if (!newDate || newDate === rawDate) return;
+    setSavingDate(true);
+    try {
+      await documentsApi.update(doc.id, { date: newDate });
+      toast.success('Date updated');
+      onRowUpdated(doc.id, { date: newDate, rawDate: newDate });
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Failed to update date';
+      toast.error(msg);
+      setLocalDate(rawDate ?? ''); // revert on error
+    } finally {
+      setSavingDate(false);
+    }
+  };
+
+  // ── Auto-save: reference number (stored in metadata.reference_number) ──────
+
+  const handleRefSave = async () => {
+    const trimmed = localRef.trim();
+    if (trimmed === currentRef || savingRef) return;
+    setSavingRef(true);
+    const updatedMetadata = { ...rawMetadata, reference_number: trimmed || null };
+    try {
+      await documentsApi.update(doc.id, { metadata: updatedMetadata });
+      toast.success('Reference updated');
+      onRowUpdated(doc.id, { rawMetadata: updatedMetadata });
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Failed to update reference';
+      toast.error(msg);
+      setLocalRef(currentRef); // revert on error
+    } finally {
+      setSavingRef(false);
+    }
+  };
+
+  // ── Auto-save: notes (stored in metadata.notes) ───────────────────────────
+
+  const handleNotesSave = async () => {
+    const trimmed = localNotes.trim();
+    if (trimmed === currentNotes || savingNotes) return;
+    setSavingNotes(true);
+    const updatedMetadata = { ...rawMetadata, notes: trimmed || null };
+    try {
+      await documentsApi.update(doc.id, { metadata: updatedMetadata });
+      toast.success('Notes updated');
+      onRowUpdated(doc.id, { rawMetadata: updatedMetadata });
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Failed to update notes';
+      toast.error(msg);
+      setLocalNotes(currentNotes); // revert on error
+    } finally {
+      setSavingNotes(false);
     }
   };
 
@@ -608,6 +698,61 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
           onChange={handleBranchChange}
         />
 
+        {/* Date — native date picker, auto-saves on change */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-xs text-ink-muted shrink-0">
+            <Calendar size={11} aria-hidden="true" /> Date
+          </span>
+          <div className="flex items-center gap-1.5">
+            {savingDate && (
+              <Loader2 size={11} className="animate-spin text-ink-muted shrink-0" aria-hidden="true" />
+            )}
+            <input
+              type="date"
+              value={localDate}
+              onChange={handleDateChange}
+              disabled={savingDate}
+              aria-label="Document date"
+              className={clsx(
+                'text-xs rounded-full px-2.5 py-0.5',
+                'border border-border bg-surface text-ink-primary',
+                'focus:outline-none focus:ring-2 focus:ring-gold-300 focus:ring-offset-0',
+                'transition-opacity duration-150',
+                savingDate && 'opacity-50 cursor-wait',
+              )}
+            />
+          </div>
+        </div>
+
+        {/* Reference # — text input, auto-saves on blur or Enter */}
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-1.5 text-xs text-ink-muted shrink-0">
+            <Hash size={11} aria-hidden="true" /> Ref #
+          </span>
+          <div className="flex items-center gap-1.5">
+            {savingRef && (
+              <Loader2 size={11} className="animate-spin text-ink-muted shrink-0" aria-hidden="true" />
+            )}
+            <input
+              type="text"
+              value={localRef}
+              onChange={(e) => setLocalRef(e.target.value)}
+              onBlur={handleRefSave}
+              onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+              disabled={savingRef}
+              placeholder="—"
+              aria-label="Reference number"
+              className={clsx(
+                'text-xs text-right rounded-full px-2.5 py-0.5 w-28',
+                'border border-border bg-surface text-ink-primary placeholder:text-ink-muted/40',
+                'focus:outline-none focus:ring-2 focus:ring-gold-300 focus:ring-offset-0',
+                'transition-opacity duration-150',
+                savingRef && 'opacity-50 cursor-wait',
+              )}
+            />
+          </div>
+        </div>
+
         <div className="h-px bg-border" />
 
         {/* Status — read-only */}
@@ -628,14 +773,6 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
           </div>
         )}
 
-        {/* Date — read-only */}
-        {doc.date && (
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-ink-muted shrink-0">Date</span>
-            <span className="text-xs font-medium text-ink-secondary">{doc.date}</span>
-          </div>
-        )}
-
         {/* Amount — read-only, shown when set */}
         {rawAmount !== null && (
           <div className="flex items-center justify-between gap-2">
@@ -648,6 +785,36 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
             </span>
           </div>
         )}
+
+        <div className="h-px bg-border" />
+
+        {/* Notes — textarea, auto-saves on blur */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-1.5 text-xs text-ink-muted">
+              <AlignLeft size={11} aria-hidden="true" /> Notes
+            </span>
+            {savingNotes && (
+              <Loader2 size={11} className="animate-spin text-ink-muted" aria-hidden="true" />
+            )}
+          </div>
+          <textarea
+            value={localNotes}
+            onChange={(e) => setLocalNotes(e.target.value)}
+            onBlur={handleNotesSave}
+            disabled={savingNotes}
+            placeholder="Add a note…"
+            rows={3}
+            aria-label="Document notes"
+            className={clsx(
+              'w-full text-xs rounded-lg px-2.5 py-1.5 resize-none',
+              'border border-border bg-surface text-ink-primary placeholder:text-ink-muted/40',
+              'focus:outline-none focus:ring-2 focus:ring-gold-300 focus:ring-offset-0',
+              'transition-opacity duration-150',
+              savingNotes && 'opacity-50 cursor-wait',
+            )}
+          />
+        </div>
 
         <div className="h-px bg-border" />
 
