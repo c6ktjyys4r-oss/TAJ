@@ -20,7 +20,7 @@ import { DocumentDetailPanel } from '../components/documents/DocumentDetailPanel
 import type { DocumentRecord } from '../components/documents/DocumentDetailPanel';
 import { BatchClassifyBar } from '../components/documents/BatchClassifyBar';
 import { documentsApi, ApiError } from '../lib/api';
-import type { ApiDocument, DocumentType, DocumentStatus } from '../lib/api';
+import type { ApiDocument, DocumentType, DocumentStatus, SortBy, SortOrder } from '../lib/api';
 import { useT } from '../hooks/useT';
 import { clsx } from 'clsx';
 
@@ -183,7 +183,40 @@ export const Documents: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Fetch (server-side pagination + search) ───────────────────────────────
+  // ── Sort state ────────────────────────────────────────────────────────────
+
+  // sortColKey is the SortableTable column key; sortBy is the API param name.
+  const COLUMN_TO_SORT: Record<string, SortBy> = {
+    name:   'file_name',
+    type:   'type',
+    vendor: 'vendor',
+    date:   'date',
+    size:   'file_size',
+    status: 'status',
+  };
+
+  // Reverse mapping: API sortBy → table column key (for the header indicator).
+  const SORT_TO_COLUMN: Record<SortBy, string> = {
+    file_name:  'name',
+    type:       'type',
+    vendor:     'vendor',
+    date:       'date',
+    file_size:  'size',
+    status:     'status',
+    created_at: 'date',
+  };
+
+  const [sortBy,  setSortBy]  = useState<SortBy>('date');
+  const [sortDir, setSortDir] = useState<SortOrder>('desc');
+
+  const handleTableSort = useCallback((colKey: string, dir: 'asc' | 'desc') => {
+    const apiKey = COLUMN_TO_SORT[colKey] ?? 'date';
+    setSortBy(apiKey);
+    setSortDir(dir as SortOrder);
+    setPage(1);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch (server-side pagination + search + sort) ────────────────────────
 
   const reload = useCallback(() => setFetchId((n) => n + 1), []);
 
@@ -195,7 +228,7 @@ export const Documents: React.FC = () => {
     const apiParams = tabToApiParams(activeTab);
 
     documentsApi
-      .list({ page, pageSize: PAGE_SIZE, search: search || undefined, ...apiParams })
+      .list({ page, pageSize: PAGE_SIZE, search: search || undefined, sortBy, sortOrder: sortDir, ...apiParams })
       .then(({ items, totalCount: tc, totalPages: tp }) => {
         if (cancelled) return;
         const mapped = items.map(apiDocToRecord);
@@ -215,7 +248,7 @@ export const Documents: React.FC = () => {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [fetchId, page, activeTab, search]);
+  }, [fetchId, page, activeTab, search, sortBy, sortDir]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -492,7 +525,9 @@ export const Documents: React.FC = () => {
                 data={displayDocs as Doc[]}
                 keyExtractor={(row) => row.id}
                 onRowClick={(row) => setSelectedDoc(row as DocumentRecord)}
-                defaultSort={{ key: 'date', dir: 'desc' }}
+                sortKey={SORT_TO_COLUMN[sortBy]}
+                sortDir={sortDir}
+                onSort={handleTableSort}
               />
               <Pagination
                 page={page}

@@ -10,15 +10,25 @@ import type { ApiDocument, ApiPaginatedResponse, DocumentType, DocumentStatus } 
 
 // ── Request / response types ──────────────────────────────────────────────────
 
+export type SortBy =
+  | 'date' | 'file_name' | 'vendor' | 'file_size'
+  | 'created_at' | 'status' | 'type';
+
+export type SortOrder = 'asc' | 'desc';
+
 export interface ListDocumentsParams {
-  type?:     DocumentType;
-  status?:   DocumentStatus;
+  type?:      DocumentType;
+  status?:    DocumentStatus;
   /** Case-insensitive substring search across file_name and vendor. */
-  search?:   string;
+  search?:    string;
+  /** Column to sort by. Default: 'date'. */
+  sortBy?:    SortBy;
+  /** Sort direction. Default: 'desc'. */
+  sortOrder?: SortOrder;
   /** 1-based page number. Default: 1. */
-  page?:     number;
+  page?:      number;
   /** Rows per page (1–100). Default: 20. */
-  pageSize?: number;
+  pageSize?:  number;
 }
 
 export interface CreateDocumentBody {
@@ -37,11 +47,13 @@ export type UpdateDocumentBody = Partial<CreateDocumentBody>;
 
 function buildQuery(params: ListDocumentsParams): string {
   const q = new URLSearchParams();
-  if (params.type     !== undefined) q.set('type',     params.type);
-  if (params.status   !== undefined) q.set('status',   params.status);
-  if (params.search)                 q.set('search',   params.search);
-  if (params.page     !== undefined) q.set('page',     String(params.page));
-  if (params.pageSize !== undefined) q.set('pageSize', String(params.pageSize));
+  if (params.type      !== undefined) q.set('type',      params.type);
+  if (params.status    !== undefined) q.set('status',    params.status);
+  if (params.search)                  q.set('search',    params.search);
+  if (params.sortBy)                  q.set('sortBy',    params.sortBy);
+  if (params.sortOrder)               q.set('sortOrder', params.sortOrder);
+  if (params.page      !== undefined) q.set('page',      String(params.page));
+  if (params.pageSize  !== undefined) q.set('pageSize',  String(params.pageSize));
   const qs = q.toString();
   return qs ? `?${qs}` : '';
 }

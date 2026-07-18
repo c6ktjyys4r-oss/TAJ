@@ -31,6 +31,8 @@ export type {
   ListDocumentsParams,
   CreateDocumentBody,
   UpdateDocumentBody,
+  SortBy,
+  SortOrder,
 } from './documents';
 
 export type { UploadFileParams } from './upload';

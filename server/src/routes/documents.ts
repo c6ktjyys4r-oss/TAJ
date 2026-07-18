@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, and, or, count, ilike, SQL } from 'drizzle-orm';
+import { eq, and, or, count, ilike, asc, desc, SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, pool } from '../db/index';
 import { documents, documentTypeEnum, documentStatusEnum } from '../db/schema';
@@ -24,12 +24,26 @@ const createDocumentSchema = z.object({
 
 const updateDocumentSchema = createDocumentSchema.partial();
 
+const SORT_COLUMNS = {
+  date:       documents.date,
+  file_name:  documents.file_name,
+  vendor:     documents.vendor,
+  file_size:  documents.file_size,
+  created_at: documents.created_at,
+  status:     documents.status,
+  type:       documents.type,
+} as const;
+
+type SortableKey = keyof typeof SORT_COLUMNS;
+
 const listQuerySchema = z.object({
-  type:     z.enum(documentTypes).optional(),
-  status:   z.enum(documentStatuses).optional(),
-  search:   z.string().trim().optional(),
-  page:     z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
+  type:      z.enum(documentTypes).optional(),
+  status:    z.enum(documentStatuses).optional(),
+  search:    z.string().trim().optional(),
+  sortBy:    z.enum(['date','file_name','vendor','file_size','created_at','status','type']).default('date'),
+  sortOrder: z.enum(['asc','desc']).default('desc'),
+  page:      z.coerce.number().int().min(1).default(1),
+  pageSize:  z.coerce.number().int().min(1).max(100).default(20),
 });
 
 // ── GET /api/documents ────────────────────────────────────────────────────────
@@ -51,7 +65,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
     if (!query.success) {
       throw new AppError(400, 'INVALID_QUERY', query.error.errors[0]?.message ?? 'Invalid query parameters');
     }
-    const { type, status, search, page, pageSize } = query.data;
+    const { type, status, search, sortBy, sortOrder, page, pageSize } = query.data;
     const offset = (page - 1) * pageSize;
 
     // Build WHERE conditions
@@ -69,10 +83,14 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
     }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
+    // ORDER BY — resolved at SQL level, never in-memory
+    const col     = SORT_COLUMNS[sortBy as SortableKey];
+    const orderBy = sortOrder === 'asc' ? asc(col) : desc(col);
+
     // Run COUNT and paginated SELECT in parallel — neither loads the full table
     const [countResult, items] = await Promise.all([
       db.select({ value: count() }).from(documents).where(where),
-      db.select().from(documents).where(where).limit(pageSize).offset(offset),
+      db.select().from(documents).where(where).orderBy(orderBy).limit(pageSize).offset(offset),
     ]);
 
     const totalCount = Number(countResult[0]?.value ?? 0);

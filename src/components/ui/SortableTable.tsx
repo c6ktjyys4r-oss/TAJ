@@ -20,22 +20,44 @@ interface SortableTableProps<T> {
   emptyMessage?: string;
   className?: string;
   defaultSort?: { key: string; dir: 'asc' | 'desc' };
+  /** Controlled sort key — when provided, disables internal sort state. */
+  sortKey?: string;
+  /** Controlled sort direction — used alongside sortKey. */
+  sortDir?: 'asc' | 'desc';
+  /**
+   * Called when a sortable header is clicked in controlled mode.
+   * The parent is responsible for fetching sorted data and updating sortKey/sortDir.
+   */
+  onSort?: (key: string, dir: 'asc' | 'desc') => void;
 }
 
 export function SortableTable<T extends Record<string, unknown>>({
-  columns, data, keyExtractor, onRowClick, emptyMessage = 'No data', className, defaultSort
+  columns, data, keyExtractor, onRowClick, emptyMessage = 'No data', className, defaultSort,
+  sortKey: controlledKey, sortDir: controlledDir, onSort,
 }: SortableTableProps<T>) {
-  const [sortKey, setSortKey] = useState<string | null>(defaultSort?.key ?? null);
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>(defaultSort?.dir ?? 'asc');
+  // Internal state — only used when onSort is NOT provided (uncontrolled mode).
+  const [internalKey, setInternalKey] = useState<string | null>(defaultSort?.key ?? null);
+  const [internalDir, setInternalDir] = useState<'asc' | 'desc'>(defaultSort?.dir ?? 'asc');
+
+  const controlled = onSort !== undefined;
+  const sortKey = controlled ? (controlledKey ?? null) : internalKey;
+  const sortDir = controlled ? (controlledDir ?? 'asc') : internalDir;
 
   const handleSort = (col: SortableColumn<T>) => {
     if (!col.sortable && !col.sortFn) return;
-    if (sortKey === col.key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-    else { setSortKey(col.key); setSortDir('asc'); }
+    const nextDir: 'asc' | 'desc' =
+      sortKey === col.key ? (sortDir === 'asc' ? 'desc' : 'asc') : 'asc';
+    if (controlled) {
+      onSort(col.key, nextDir);
+    } else {
+      setInternalKey(col.key);
+      setInternalDir(nextDir);
+    }
   };
 
+  // In controlled mode the data is already sorted server-side — skip local sort.
   const sorted = useMemo(() => {
-    if (!sortKey) return data;
+    if (controlled || !sortKey) return data;
     const col = columns.find((c) => c.key === sortKey);
     if (!col) return data;
     return [...data].sort((a, b) => {
@@ -48,7 +70,7 @@ export function SortableTable<T extends Record<string, unknown>>({
       }
       return sortDir === 'asc' ? cmp : -cmp;
     });
-  }, [data, sortKey, sortDir, columns]);
+  }, [data, sortKey, sortDir, columns, controlled]);
 
   return (
     <div className={clsx('w-full overflow-auto', className)}>
