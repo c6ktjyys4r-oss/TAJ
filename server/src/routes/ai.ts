@@ -318,13 +318,13 @@ async function acceptOrReject(
     let p = 2;
 
     for (const { col, val } of directSets) {
-      setClauses.push(`${col} = ${p++}`);
+      setClauses.push(`${col} = $${p++}`);
       params.push(val);
     }
     if (metaSets.length > 0) {
       let jsonbExpr = 'COALESCE(metadata, \'{}\'::jsonb)';
       for (const { key, val } of metaSets) {
-        jsonbExpr = `jsonb_set(${jsonbExpr}, '{${key}}', ${p++}::jsonb)`;
+        jsonbExpr = `jsonb_set(${jsonbExpr}, '{${key}}', $${p++}::jsonb)`;
         params.push(JSON.stringify(val));
       }
       setClauses.push(`metadata = ${jsonbExpr}`);
