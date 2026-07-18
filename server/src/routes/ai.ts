@@ -9,6 +9,7 @@
  *   POST /api/ai/settings/test-connection  — verify provider connectivity
  *   GET  /api/ai/settings/validate         — structured settings validation report
  *   GET  /api/ai/health                    — lightweight health check (DB + provider)
+ *   GET  /api/ai/dashboard                 — real-time AI processing stats
  *   GET  /api/ai/logs                      — paginated AI processing log
  *   GET  /api/ai/documents/:id             — get AI job status + result
  *   POST /api/ai/documents/:id/retry       — re-queue a failed/pending job
@@ -22,7 +23,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import { pool }                                         from '../db/index';
 import { AppError }                                     from '../middleware/errorHandler';
 import { logger }                                       from '../logger';
-import { createProvider, loadProviderConfig, queueDocument, cancelJob } from '../ai';
+import { createProvider, loadProviderConfig, queueDocument, cancelJob, configureQueue } from '../ai';
 
 const router = Router();
 
@@ -170,6 +171,31 @@ router.put('/settings', async (req: Request, res: Response, next: NextFunction) 
         throw new AppError(400, 'INVALID_MAX_TOKENS', 'max_tokens must be 1–8192');
       }
       addParam('max_tokens', maxTok);
+    }
+
+    // ── Phase 10: runtime-configurable worker settings ────────────────────────
+    if (typeof b.timeout_ms === 'number') {
+      const t = Math.round(b.timeout_ms);
+      if (t < 1_000 || t > 300_000) {
+        throw new AppError(400, 'INVALID_TIMEOUT', 'timeout_ms must be 1000–300000');
+      }
+      addParam('timeout_ms', t);
+    }
+    if (typeof b.max_retries === 'number') {
+      const r = Math.round(b.max_retries);
+      if (r < 0 || r > 10) {
+        throw new AppError(400, 'INVALID_MAX_RETRIES', 'max_retries must be 0–10');
+      }
+      addParam('max_retries', r);
+      configureQueue({ maxRetries: r });
+    }
+    if (typeof b.parallel_workers === 'number') {
+      const w = Math.round(b.parallel_workers);
+      if (w < 1 || w > 20) {
+        throw new AppError(400, 'INVALID_PARALLEL_WORKERS', 'parallel_workers must be 1–20');
+      }
+      addParam('parallel_workers', w);
+      configureQueue({ maxConcurrent: w });
     }
 
     // ── Update ai_settings ────────────────────────────────────────────────────
@@ -377,6 +403,74 @@ router.get('/health', async (_req: Request, res: Response, next: NextFunction) =
   }
 });
 
+// ── GET /api/ai/dashboard ─────────────────────────────────────────────────────
+
+/**
+ * Returns real-time AI processing statistics from ai_document_jobs.
+ *
+ * Response shape:
+ *   { pending_count, processing_count, retry_count, completed_count,
+ *     failed_count, cancelled_count, avg_confidence, documents_processed,
+ *     provider_usage: Record<string, number> }
+ *
+ * avg_confidence is null when no completed jobs exist.
+ * provider_usage maps provider name → completed job count.
+ *
+ * This endpoint is safe to poll frequently (< 1 s query on indexed table).
+ */
+router.get('/dashboard', async (_req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { rows } = await pool.query<{
+      pending_count:    string;
+      processing_count: string;
+      retry_count:      string;
+      completed_count:  string;
+      failed_count:     string;
+      cancelled_count:  string;
+      avg_confidence:   string | null;
+    }>(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'pending')    AS pending_count,
+        COUNT(*) FILTER (WHERE status = 'processing') AS processing_count,
+        COUNT(*) FILTER (WHERE status = 'retry')      AS retry_count,
+        COUNT(*) FILTER (WHERE status = 'completed')  AS completed_count,
+        COUNT(*) FILTER (WHERE status = 'failed')     AS failed_count,
+        COUNT(*) FILTER (WHERE status = 'cancelled')  AS cancelled_count,
+        ROUND(AVG(overall_confidence) FILTER (
+          WHERE status = 'completed' AND overall_confidence IS NOT NULL
+        )) AS avg_confidence
+      FROM ai_document_jobs
+    `);
+
+    const { rows: providerRows } = await pool.query<{ provider: string; count: string }>(`
+      SELECT provider, COUNT(*) AS count
+        FROM ai_document_jobs
+       WHERE status = 'completed' AND provider IS NOT NULL
+       GROUP BY provider
+    `);
+
+    const row = rows[0] ?? {};
+    const provider_usage: Record<string, number> = {};
+    for (const pr of providerRows) {
+      provider_usage[pr.provider] = parseInt(pr.count, 10);
+    }
+
+    res.json({
+      pending_count:    parseInt(row.pending_count    ?? '0', 10),
+      processing_count: parseInt(row.processing_count ?? '0', 10),
+      retry_count:      parseInt(row.retry_count      ?? '0', 10),
+      completed_count:  parseInt(row.completed_count  ?? '0', 10),
+      failed_count:     parseInt(row.failed_count     ?? '0', 10),
+      cancelled_count:  parseInt(row.cancelled_count  ?? '0', 10),
+      avg_confidence:   row.avg_confidence != null ? Number(row.avg_confidence) : null,
+      documents_processed: parseInt(row.completed_count ?? '0', 10),
+      provider_usage,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── GET /api/ai/logs ──────────────────────────────────────────────────────────
 
 /**
@@ -475,14 +569,15 @@ router.post('/documents/:id/cancel', async (req: Request, res: Response, next: N
       throw new AppError(404, 'DOCUMENT_NOT_FOUND', `Document ${id} not found`);
     }
 
-    // Remove from the in-memory queue and mark as failed if still pending
+    // Remove from the in-memory queue (also sets cancellation flag for in-flight jobs)
     cancelJob(id);
 
-    // Best-effort DB update: mark pending/processing jobs as failed
+    // Best-effort DB update: mark pending/processing/retry jobs as cancelled
+    // (migration 0010 added 'cancelled' to the status CHECK constraint)
     await pool.query(
       `UPDATE ai_document_jobs
-         SET status = 'failed', error = 'Job cancelled', updated_at = now()
-       WHERE document_id = $1 AND status IN ('pending', 'processing')`,
+         SET status = 'cancelled', error = 'Job cancelled by user', updated_at = now()
+       WHERE document_id = $1 AND status IN ('pending', 'processing', 'retry')`,
       [id],
     );
 

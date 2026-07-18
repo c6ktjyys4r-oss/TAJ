@@ -206,6 +206,9 @@ export interface AiSettingsResponse {
   max_log_entries:       number;
   temperature:           number;    // 0.0–2.0
   max_tokens:            number;    // 1–8192
+  timeout_ms:            number;    // provider API call timeout in ms
+  max_retries:           number;    // max retry attempts per failed job
+  parallel_workers:      number;    // max concurrent AI jobs
   created_at:            string;
   updated_at:            string;
 }
@@ -235,6 +238,9 @@ export interface UpdateAiSettingsBody {
   max_log_entries?:       number;
   temperature?:           number;
   max_tokens?:            number;
+  timeout_ms?:            number;
+  max_retries?:           number;
+  parallel_workers?:      number;
 }
 
 /** Returned by POST /api/ai/settings/test-connection */
@@ -246,7 +252,7 @@ export interface TestConnectionResult {
 
 // ── AI Document Jobs ──────────────────────────────────────────────────────────
 
-export type AiJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+export type AiJobStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'retry' | 'cancelled';
 
 /** A single extracted field with its confidence score. */
 export interface AiExtractionField {
@@ -285,4 +291,24 @@ export interface AiJobResponse {
 export interface AcceptRejectBody {
   /** Field names to accept/reject, e.g. ["supplier", "invoice_date"]. Empty = all. */
   fields?: string[];
+}
+
+// ── AI Dashboard Stats ────────────────────────────────────────────────────────
+
+/**
+ * Returned by GET /api/ai/dashboard.
+ * All counts are live from ai_document_jobs. avg_confidence is null when
+ * no completed jobs exist.
+ */
+export interface AiDashboardStats {
+  pending_count:     number;
+  processing_count:  number;
+  retry_count:       number;
+  completed_count:   number;
+  failed_count:      number;
+  cancelled_count:   number;
+  avg_confidence:    number | null;
+  documents_processed: number;
+  /** provider → completed job count */
+  provider_usage:    Record<string, number>;
 }

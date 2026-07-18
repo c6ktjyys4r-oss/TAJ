@@ -14,6 +14,7 @@ import type {
   TestConnectionResult,
   AiJobResponse,
   AcceptRejectBody,
+  AiDashboardStats,
 } from './types';
 
 export const aiSettingsApi = {
@@ -69,5 +70,10 @@ export const aiSettingsApi = {
       `/api/ai/documents/${encodeURIComponent(documentId)}/cancel`,
       {},
     );
+  },
+
+  /** GET /api/ai/dashboard — live AI queue and throughput stats. */
+  getDashboard(): Promise<AiDashboardStats> {
+    return api.get<AiDashboardStats>('/api/ai/dashboard');
   },
 };
