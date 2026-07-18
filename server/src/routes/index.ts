@@ -5,6 +5,7 @@ import filesRouter       from './files';
 import uploadRouter      from './upload';
 import allocationsRouter from './allocations';
 import reportsRouter     from './reports';
+import aiRouter          from './ai';
 
 const router = Router();
 
@@ -14,5 +15,6 @@ router.use('/api/documents',                 filesRouter);          // GET /:id/
 router.use('/api/upload',                    uploadRouter);
 router.use('/api/documents/:id/allocations', allocationsRouter);   // GET|PUT|DELETE
 router.use('/api/reports',                   reportsRouter);        // GET /summary, /branches
+router.use('/api/ai',                        aiRouter);             // GET|PUT /settings, POST /settings/test-connection
 
 export default router;

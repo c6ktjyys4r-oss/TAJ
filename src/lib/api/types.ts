@@ -171,3 +171,114 @@ export interface ReportSummary {
 export interface ReportBranchesResponse {
   branches: string[];
 }
+
+// ── AI Settings ───────────────────────────────────────────────────────────────
+
+export type AiProvider     = 'openai' | 'anthropic' | 'gemini' | 'openrouter' | 'ollama';
+export type ApprovalPolicy = 'automatic' | 'review' | 'suggestion';
+export type FieldPolicy    = 'automatic' | 'review' | 'suggestion';
+
+/**
+ * Returned by GET /api/ai/settings and PUT /api/ai/settings.
+ * api_key_encrypted is NEVER returned — api_key_set shows whether a key is stored.
+ */
+export interface AiSettingsResponse {
+  id:                    number;
+  enabled:               boolean;
+  process_after_upload:  boolean;
+  assistant_enabled:     boolean;
+  provider:              AiProvider;
+  model:                 string;
+  api_key_set:           boolean;   // true when a key is stored server-side
+  base_url:              string | null;
+  confidence_threshold:  number;    // 50–100
+  approval_policy:       ApprovalPolicy;
+  policy_category:       FieldPolicy;
+  policy_branch:         FieldPolicy;
+  policy_invoice_date:   FieldPolicy;
+  policy_invoice_number: FieldPolicy;
+  policy_supplier:       FieldPolicy;
+  policy_tax:            FieldPolicy;
+  policy_currency:       FieldPolicy;
+  log_enabled:           boolean;
+  store_prompts:         boolean;
+  store_responses:       boolean;
+  max_log_entries:       number;
+  created_at:            string;
+  updated_at:            string;
+}
+
+/** Body for PUT /api/ai/settings — all fields optional. */
+export interface UpdateAiSettingsBody {
+  enabled?:               boolean;
+  process_after_upload?:  boolean;
+  assistant_enabled?:     boolean;
+  provider?:              AiProvider;
+  model?:                 string;
+  /** Send empty string to clear the key; non-empty to update. Omit to preserve. */
+  api_key?:               string;
+  base_url?:              string | null;
+  confidence_threshold?:  number;
+  approval_policy?:       ApprovalPolicy;
+  policy_category?:       FieldPolicy;
+  policy_branch?:         FieldPolicy;
+  policy_invoice_date?:   FieldPolicy;
+  policy_invoice_number?: FieldPolicy;
+  policy_supplier?:       FieldPolicy;
+  policy_tax?:            FieldPolicy;
+  policy_currency?:       FieldPolicy;
+  log_enabled?:           boolean;
+  store_prompts?:         boolean;
+  store_responses?:       boolean;
+  max_log_entries?:       number;
+}
+
+/** Returned by POST /api/ai/settings/test-connection */
+export interface TestConnectionResult {
+  ok:         boolean;
+  latencyMs?: number;
+  error?:     string;
+}
+
+// ── AI Document Jobs ──────────────────────────────────────────────────────────
+
+export type AiJobStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+/** A single extracted field with its confidence score. */
+export interface AiExtractionField {
+  value:      string | null;
+  confidence: number;   // 0–100
+  action?:    'applied' | 'suggested' | 'rejected' | 'accepted' | null;
+}
+
+/** Full extraction result stored in ai_document_jobs.result */
+export interface AiExtractionResult {
+  supplier:       AiExtractionField;
+  invoice_number: AiExtractionField;
+  invoice_date:   AiExtractionField;
+  currency:       AiExtractionField;
+  subtotal:       AiExtractionField;
+  vat:            AiExtractionField;
+  total:          AiExtractionField;
+  document_type:  AiExtractionField;
+  summary:        AiExtractionField;
+  overall_confidence: number;
+}
+
+/** Returned by GET /api/ai/documents/:id */
+export interface AiJobResponse {
+  id:          string;
+  document_id: string;
+  status:      AiJobStatus;
+  result:      AiExtractionResult | null;
+  error:       string | null;
+  attempts:    number;
+  created_at:  string;
+  updated_at:  string;
+}
+
+/** Body for POST /api/ai/documents/:id/accept and /reject */
+export interface AcceptRejectBody {
+  /** Field names to accept/reject, e.g. ["supplier", "invoice_date"]. Empty = all. */
+  fields?: string[];
+}

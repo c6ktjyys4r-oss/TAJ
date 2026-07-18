@@ -47,3 +47,19 @@ export type {
 } from './documents';
 
 export type { UploadFileParams } from './upload';
+
+export { aiSettingsApi } from './ai';
+
+export type {
+  AiProvider,
+  ApprovalPolicy,
+  FieldPolicy,
+  AiSettingsResponse,
+  UpdateAiSettingsBody,
+  TestConnectionResult,
+  AiJobStatus,
+  AiExtractionField,
+  AiExtractionResult,
+  AiJobResponse,
+  AcceptRejectBody,
+} from './types';

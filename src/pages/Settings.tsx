@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { Sparkles, Bell, Globe, Shield, Users, Palette, BellRing, BellOff, Download, Upload } from 'lucide-react';
+import { AiSettings } from '../components/settings/AiSettings';
 import { PageTitle } from '../components/ui/Typography';
 import { Card, CardHeader } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
@@ -189,17 +190,7 @@ export const Settings: React.FC = () => {
             </div>
           )}
 
-          {activeSection === 'ai' && (
-            <Card padding="md">
-              <CardHeader title={t('settings.ai')} subtitle="Configure how AI assists your workflow" />
-              <Toggle
-                label={t('settings.aiCompanion')}
-                hint={t('settings.aiCompanion.hint')}
-                checked={aiCompanionEnabled}
-                onChange={setAiCompanionEnabled}
-              />
-            </Card>
-          )}
+          {activeSection === 'ai' && <AiSettings />}
 
           {activeSection === 'notifications' && (
             <Card padding="md">
