@@ -19,6 +19,7 @@ import { UploadModal } from '../components/documents/UploadModal';
 import { DocumentDetailPanel } from '../components/documents/DocumentDetailPanel';
 import type { DocumentRecord } from '../components/documents/DocumentDetailPanel';
 import { PreviewPanel } from '../components/documents/PreviewPanel';
+import type { RowPatch }    from '../components/documents/PreviewPanel';
 import { BatchClassifyBar } from '../components/documents/BatchClassifyBar';
 import { documentsApi, ApiError } from '../lib/api';
 import type { ApiDocument, DocumentType, DocumentStatus, SortBy, SortOrder } from '../lib/api';
@@ -83,7 +84,7 @@ function tabToApiParams(tab: TabValue): { type?: DocumentType; status?: Document
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type DocStatus = DocumentRecord['status'];
-type RichRecord = DocumentRecord & { rawType: DocumentType };
+type RichRecord = DocumentRecord & { rawType: DocumentType; rawMetadata: Record<string, unknown> };
 
 function statusVariant(s: DocStatus): 'success' | 'warning' | 'default' {
   if (s === 'Classified')   return 'success';
@@ -162,7 +163,7 @@ export const Documents: React.FC = () => {
   const [activeTab, setActiveTab]     = useLocalStorage<TabValue>('taj_docs_tab', 'all');
   const [uploadOpen, setUploadOpen]   = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocumentRecord | null>(null);
-  const [previewDoc, setPreviewDoc]   = useState<DocumentRecord | null>(null);
+  const [previewDocId, setPreviewDocId] = useState<string | null>(null);
   const [filters, setFilters]         = useState<FilterState>({});
   const [dateRange, setDateRange]     = useState<DateRange | null>(null);
   const [selected, setSelected]       = useState<Set<string>>(new Set());
@@ -245,7 +246,7 @@ export const Documents: React.FC = () => {
       })
       .then(({ items, totalCount: tc, totalPages: tp }) => {
         if (cancelled) return;
-        const mapped = items.map((d) => ({ ...apiDocToRecord(d), rawType: d.type }));
+        const mapped = items.map((d) => ({ ...apiDocToRecord(d), rawType: d.type, rawMetadata: d.metadata }));
         setDocs(mapped);
         setTotalCount(tc);
         setTotalPages(tp);
@@ -316,6 +317,14 @@ export const Documents: React.FC = () => {
     );
   }, [orderedDocs, dateRange]);
 
+  // ── Preview: ID-based tracking so navigation + row-patch stay in sync ────
+
+  const previewIndex = useMemo(
+    () => (previewDocId !== null ? displayDocs.findIndex((d) => d.id === previewDocId) : -1),
+    [previewDocId, displayDocs],
+  );
+  const previewDoc = previewIndex >= 0 ? displayDocs[previewIndex] : null;
+
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleTabChange = (tab: TabValue) => {
@@ -342,6 +351,16 @@ export const Documents: React.FC = () => {
 
   const handleDragStart = useCallback((id: string) => setDragId(id), []);
   const handleDragOver  = useCallback((id: string) => setDragOverId(id), []);
+
+  /**
+   * Surgical single-row update — does NOT trigger a full list reload.
+   * Saves and restores window scroll so the user's reading position is preserved.
+   */
+  const handleRowUpdated = useCallback((id: string, patch: RowPatch) => {
+    const scrollY = window.scrollY;
+    setDocs((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)));
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  }, []);
 
   const handleDrop = useCallback(() => {
     if (!dragId || !dragOverId || dragId === dragOverId) {
@@ -407,16 +426,21 @@ export const Documents: React.FC = () => {
         <button
           onClick={(e) => {
             e.stopPropagation();
-            setPreviewDoc(row as DocumentRecord);
+            setPreviewDocId(row.id);
           }}
           aria-label={`Preview ${row.name}`}
-          className="p-1.5 rounded-lg text-ink-muted hover:text-gold-600 hover:bg-gold-50 transition-colors touch-target"
+          className={clsx(
+            'p-1.5 rounded-lg transition-colors touch-target',
+            previewDocId === row.id
+              ? 'text-gold-600 bg-gold-50'
+              : 'text-ink-muted hover:text-gold-600 hover:bg-gold-50',
+          )}
         >
           <Eye size={14} aria-hidden="true" />
         </button>
       ),
     },
-  ], [selected, toggleSelect, setPreviewDoc]);
+  ], [selected, toggleSelect, setPreviewDocId, previewDocId]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -589,7 +613,17 @@ export const Documents: React.FC = () => {
           {/* ── Inline preview panel (list stays visible) ── */}
           {previewDoc && (
             <div className="hidden sm:block w-80 xl:w-96 shrink-0 sticky top-4">
-              <PreviewPanel doc={previewDoc} onClose={() => setPreviewDoc(null)} />
+              <PreviewPanel
+                doc={previewDoc}
+                rawType={previewDoc.rawType}
+                rawMetadata={previewDoc.rawMetadata}
+                hasPrev={previewIndex > 0}
+                hasNext={previewIndex < displayDocs.length - 1}
+                onPrev={() => setPreviewDocId(displayDocs[previewIndex - 1]?.id ?? null)}
+                onNext={() => setPreviewDocId(displayDocs[previewIndex + 1]?.id ?? null)}
+                onClose={() => setPreviewDocId(null)}
+                onRowUpdated={handleRowUpdated}
+              />
             </div>
           )}
         </div>
