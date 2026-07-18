@@ -12,7 +12,6 @@ import { useT } from '../hooks/useT';
 export const Settings: React.FC = () => {
   const t = useT();
   const {
-    aiCompanionEnabled, setAiCompanionEnabled,
     notificationsEmail, setNotificationsEmail,
     notificationsPush,  setNotificationsPush,
     notificationsDigest, setNotificationsDigest,

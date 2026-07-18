@@ -591,7 +591,7 @@ export const Documents: React.FC = () => {
                 <>
                   <SortableTable<Doc>
                     columns={columns}
-                    data={displayDocs as Doc[]}
+                    data={displayDocs as unknown as Doc[]}
                     keyExtractor={(row) => row.id}
                     onRowClick={(row) => setSelectedDoc(row as DocumentRecord)}
                     sortKey={SORT_TO_COLUMN[sortBy]}
