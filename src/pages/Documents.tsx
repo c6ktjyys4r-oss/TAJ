@@ -84,7 +84,7 @@ function tabToApiParams(tab: TabValue): { type?: DocumentType; status?: Document
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type DocStatus = DocumentRecord['status'];
-type RichRecord = DocumentRecord & { rawType: DocumentType; rawMetadata: Record<string, unknown> };
+type RichRecord = DocumentRecord & { rawType: DocumentType; rawMetadata: Record<string, unknown>; rawAmount: string | null };
 
 function statusVariant(s: DocStatus): 'success' | 'warning' | 'default' {
   if (s === 'Classified')   return 'success';
@@ -246,7 +246,7 @@ export const Documents: React.FC = () => {
       })
       .then(({ items, totalCount: tc, totalPages: tp }) => {
         if (cancelled) return;
-        const mapped = items.map((d) => ({ ...apiDocToRecord(d), rawType: d.type, rawMetadata: d.metadata }));
+        const mapped = items.map((d) => ({ ...apiDocToRecord(d), rawType: d.type, rawMetadata: d.metadata, rawAmount: d.amount }));
         setDocs(mapped);
         setTotalCount(tc);
         setTotalPages(tp);
@@ -617,6 +617,7 @@ export const Documents: React.FC = () => {
                 doc={previewDoc}
                 rawType={previewDoc.rawType}
                 rawMetadata={previewDoc.rawMetadata}
+                rawAmount={previewDoc.rawAmount}
                 hasPrev={previewIndex > 0}
                 hasNext={previewIndex < displayDocs.length - 1}
                 onPrev={() => setPreviewDocId(displayDocs[previewIndex - 1]?.id ?? null)}

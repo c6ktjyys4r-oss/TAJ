@@ -6,21 +6,22 @@
  *   - PDF / image preview
  *   - Inline category selector (auto-saves on change)
  *   - Inline branch selector (stored in metadata.branch, auto-saves)
+ *   - Allocation editor: split expense across branches (explicit Save)
  *   - Previous / Next navigation through the current visible list
- *   - Closing without a page reload
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   X, FileText, FileSpreadsheet, File, Tag,
   ChevronLeft, ChevronRight, Loader2, GitBranch,
+  Plus, Trash2, Layers,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Badge }        from '../ui/Badge';
-import { toast }        from '../ui/Toast';
-import { documentsApi, ApiError } from '../../lib/api';
-import type { DocumentType }      from '../../lib/api';
-import type { DocumentRecord }    from './DocumentDetailPanel';
+import { Badge }           from '../ui/Badge';
+import { toast }           from '../ui/Toast';
+import { documentsApi, allocationsApi, ApiError } from '../../lib/api';
+import type { DocumentType } from '../../lib/api';
+import type { DocumentRecord } from './DocumentDetailPanel';
 
 // ── Static option lists ───────────────────────────────────────────────────────
 
@@ -38,15 +39,19 @@ const TYPE_LABELS: Record<DocumentType, string> = Object.fromEntries(
   TYPE_OPTIONS.map(({ value, label }) => [value, label])
 ) as Record<DocumentType, string>;
 
+/** All selectable branches — also used for allocations (no "None" entry). */
 const BRANCH_OPTIONS = [
-  { value: '',           label: '— None —'      },
-  { value: 'hq',         label: 'HQ'            },
-  { value: 'north',      label: 'North Region'  },
-  { value: 'south',      label: 'South Region'  },
-  { value: 'east',       label: 'East Region'   },
-  { value: 'west',       label: 'West Region'   },
-  { value: 'central',    label: 'Central Region'},
+  { value: '',        label: '— None —'      },
+  { value: 'hq',     label: 'HQ'            },
+  { value: 'north',  label: 'North Region'  },
+  { value: 'south',  label: 'South Region'  },
+  { value: 'east',   label: 'East Region'   },
+  { value: 'west',   label: 'West Region'   },
+  { value: 'central',label: 'Central Region'},
 ];
+
+/** Branch options for allocation rows — "None" is not a valid allocation branch. */
+const ALLOC_BRANCH_OPTIONS = BRANCH_OPTIONS.filter(b => b.value !== '');
 
 // ── Status → badge variant ────────────────────────────────────────────────────
 
@@ -60,9 +65,35 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'default'> = {
 // ── Row patch type (passed to onRowUpdated) ───────────────────────────────────
 
 export interface RowPatch {
-  type?:        string;                      // display label (e.g. 'Invoice')
+  type?:        string;
   rawType?:     DocumentType;
   rawMetadata?: Record<string, unknown>;
+}
+
+// ── Allocation draft row ──────────────────────────────────────────────────────
+
+interface DraftRow {
+  /** Stable local key — NOT the server-side UUID (draft rows use a counter). */
+  key:    string;
+  branch: string;
+  amount: string; // raw text value from the input
+}
+
+let _draftCounter = 0;
+function nextKey(): string { return `draft-${++_draftCounter}`; }
+
+// ── Amount helpers ────────────────────────────────────────────────────────────
+
+/** Parse a decimal string to integer cents. NaN / non-positive → 0. */
+function toCents(s: string): number {
+  const v = parseFloat(s);
+  return Number.isFinite(v) && v > 0 ? Math.round(v * 100) : 0;
+}
+
+const AMOUNT_RE = /^\d+(\.\d{1,2})?$/;
+
+function isValidAmount(s: string): boolean {
+  return AMOUNT_RE.test(s) && parseFloat(s) > 0;
 }
 
 // ── File preview ──────────────────────────────────────────────────────────────
@@ -118,7 +149,7 @@ function FilePreview({ doc }: { doc: DocumentRecord }) {
   );
 }
 
-// ── Reusable inline select ────────────────────────────────────────────────────
+// ── Reusable inline select (category / branch auto-save) ──────────────────────
 
 interface InlineSelectProps {
   label:    React.ReactNode;
@@ -160,12 +191,276 @@ function InlineSelect({ label, value, options, saving, onChange }: InlineSelectP
   );
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
+// ── AllocationEditor ──────────────────────────────────────────────────────────
+
+interface AllocationEditorProps {
+  docId:     string;
+  rawAmount: string | null; // documents.amount decimal string, or null
+}
+
+function AllocationEditor({ docId, rawAmount }: AllocationEditorProps) {
+  const [draft,   setDraft]   = useState<DraftRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving,  setSaving]  = useState(false);
+  const [dirty,   setDirty]   = useState(false);
+
+  // ── Fetch existing allocations whenever the document changes ────────────────
+
+  useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setDraft([]);
+    setDirty(false);
+    allocationsApi.list(docId)
+      .then((rows) => {
+        if (!active) return;
+        setDraft(
+          rows.map((r) => ({ key: r.id, branch: r.branch, amount: r.amount }))
+        );
+      })
+      .catch(() => { if (active) toast.error('Failed to load allocations'); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [docId]);
+
+  // ── Derived amounts (cent math to avoid floating-point drift) ───────────────
+
+  const docCents       = rawAmount !== null ? Math.round(parseFloat(rawAmount) * 100) : null;
+  const allocCents     = draft.reduce((sum, r) => sum + toCents(r.amount), 0);
+  const remainingCents = docCents !== null ? docCents - allocCents : null;
+
+  // ── Row validation ──────────────────────────────────────────────────────────
+
+  const rowsAllValid = draft.every(
+    (r) => r.branch !== '' && isValidAmount(r.amount)
+  );
+
+  const canSave =
+    !saving &&
+    dirty &&
+    (draft.length === 0 || rowsAllValid) &&
+    (remainingCents === null || remainingCents === 0);
+
+  // ── Draft mutations ─────────────────────────────────────────────────────────
+
+  const addRow = useCallback(() => {
+    setDraft((prev) => [
+      ...prev,
+      { key: nextKey(), branch: 'hq', amount: '' },
+    ]);
+    setDirty(true);
+  }, []);
+
+  const removeRow = useCallback((key: string) => {
+    setDraft((prev) => prev.filter((r) => r.key !== key));
+    setDirty(true);
+  }, []);
+
+  const updateRow = useCallback((key: string, field: 'branch' | 'amount', val: string) => {
+    setDraft((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, [field]: val } : r))
+    );
+    setDirty(true);
+  }, []);
+
+  // ── Save ────────────────────────────────────────────────────────────────────
+
+  const handleSave = useCallback(async () => {
+    if (!canSave) return;
+    setSaving(true);
+    try {
+      if (draft.length === 0) {
+        await allocationsApi.clear(docId);
+        toast.success('Allocations cleared');
+      } else {
+        const saved = await allocationsApi.set(
+          docId,
+          draft.map((r) => ({
+            branch: r.branch,
+            amount: parseFloat(r.amount).toFixed(2),
+          })),
+        );
+        // Sync keys to server-returned IDs so future edits are stable
+        setDraft(saved.map((r) => ({ key: r.id, branch: r.branch, amount: r.amount })));
+        toast.success('Allocations saved');
+      }
+      setDirty(false);
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : 'Failed to save allocations';
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  }, [canSave, docId, draft]);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
+
+  const remainingLabel =
+    remainingCents === null      ? '—'
+    : remainingCents === 0       ? '0.00'
+    : (remainingCents / 100).toFixed(2);
+
+  const remainingColor =
+    remainingCents === null  ? 'text-ink-muted'
+    : remainingCents === 0   ? 'text-emerald-600'
+    : remainingCents < 0     ? 'text-red-500'
+    : 'text-amber-500';
+
+  return (
+    <div className="space-y-2.5">
+
+      {/* ── Section header ── */}
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-semibold text-ink-primary">
+          <Layers size={12} aria-hidden="true" />
+          Allocations
+        </span>
+        <button
+          onClick={addRow}
+          disabled={saving || loading}
+          aria-label="Add allocation row"
+          className={clsx(
+            'flex items-center gap-0.5 text-[10px] font-medium px-2 py-0.5 rounded-full',
+            'border border-border text-ink-muted',
+            'hover:text-gold-600 hover:border-gold-300 hover:bg-gold-50 transition-colors',
+            (saving || loading) && 'opacity-40 cursor-not-allowed',
+          )}
+        >
+          <Plus size={10} aria-hidden="true" />
+          Add
+        </button>
+      </div>
+
+      {/* ── Loading skeleton ── */}
+      {loading && (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 size={14} className="animate-spin text-ink-muted" aria-hidden="true" />
+        </div>
+      )}
+
+      {/* ── Empty state ── */}
+      {!loading && draft.length === 0 && (
+        <p className="text-[11px] text-ink-muted italic py-1">
+          No allocations yet — click Add to split this expense.
+        </p>
+      )}
+
+      {/* ── Draft rows ── */}
+      {!loading && draft.length > 0 && (
+        <div className="space-y-1.5">
+          {draft.map((row) => {
+            const amtInvalid = row.amount !== '' && !isValidAmount(row.amount);
+            return (
+              <div key={row.key} className="flex items-center gap-1.5">
+
+                {/* Branch selector */}
+                <select
+                  value={row.branch}
+                  onChange={(e) => updateRow(row.key, 'branch', e.target.value)}
+                  disabled={saving}
+                  aria-label="Allocation branch"
+                  className={clsx(
+                    'flex-1 min-w-0 text-[11px] rounded-lg px-2 py-1',
+                    'border border-border bg-surface text-ink-primary',
+                    'focus:outline-none focus:ring-1 focus:ring-gold-300',
+                    'appearance-none cursor-pointer transition-opacity',
+                    saving && 'opacity-50 cursor-wait',
+                  )}
+                >
+                  {ALLOC_BRANCH_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+
+                {/* Amount input */}
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={row.amount}
+                  onChange={(e) => updateRow(row.key, 'amount', e.target.value)}
+                  disabled={saving}
+                  placeholder="0.00"
+                  aria-label="Allocation amount"
+                  className={clsx(
+                    'w-20 shrink-0 text-[11px] text-right rounded-lg px-2 py-1',
+                    'border bg-surface text-ink-primary',
+                    'focus:outline-none focus:ring-1 focus:ring-gold-300',
+                    'transition-colors placeholder:text-ink-muted/50',
+                    amtInvalid ? 'border-red-400 bg-red-50' : 'border-border',
+                    saving && 'opacity-50 cursor-wait',
+                  )}
+                />
+
+                {/* Remove */}
+                <button
+                  onClick={() => removeRow(row.key)}
+                  disabled={saving}
+                  aria-label="Remove allocation row"
+                  className={clsx(
+                    'shrink-0 p-1 rounded-lg text-ink-muted',
+                    'hover:text-red-500 hover:bg-red-50 transition-colors',
+                    saving && 'opacity-40 cursor-not-allowed',
+                  )}
+                >
+                  <Trash2 size={11} aria-hidden="true" />
+                </button>
+
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Totals ── */}
+      {!loading && (
+        <div className="rounded-lg bg-gray-50 border border-border px-3 py-2 space-y-1">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-ink-muted">Total Allocated</span>
+            <span className="text-[11px] font-medium text-ink-primary tabular-nums">
+              {(allocCents / 100).toFixed(2)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] text-ink-muted">Remaining</span>
+            <span className={clsx('text-[11px] font-semibold tabular-nums', remainingColor)}>
+              {remainingLabel}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Save button ── */}
+      {!loading && (
+        <button
+          onClick={handleSave}
+          disabled={!canSave}
+          className={clsx(
+            'w-full flex items-center justify-center gap-1.5',
+            'text-[11px] font-semibold py-1.5 rounded-lg transition-colors',
+            canSave
+              ? 'bg-gold-500 hover:bg-gold-600 text-white cursor-pointer'
+              : 'bg-gray-100 text-ink-muted/50 cursor-not-allowed',
+          )}
+        >
+          {saving ? (
+            <><Loader2 size={11} className="animate-spin" aria-hidden="true" /> Saving…</>
+          ) : (
+            'Save Allocations'
+          )}
+        </button>
+      )}
+
+    </div>
+  );
+}
+
+// ── PreviewPanel component ────────────────────────────────────────────────────
 
 interface PreviewPanelProps {
   doc:          DocumentRecord;
   rawType:      DocumentType;
   rawMetadata:  Record<string, unknown>;
+  rawAmount:    string | null;
   hasPrev:      boolean;
   hasNext:      boolean;
   onPrev:       () => void;
@@ -175,7 +470,7 @@ interface PreviewPanelProps {
 }
 
 export const PreviewPanel: React.FC<PreviewPanelProps> = ({
-  doc, rawType, rawMetadata,
+  doc, rawType, rawMetadata, rawAmount,
   hasPrev, hasNext, onPrev, onNext,
   onClose, onRowUpdated,
 }) => {
@@ -284,7 +579,7 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
         <FilePreview doc={doc} />
       </div>
 
-      {/* ── Metadata + inline editors ── */}
+      {/* ── Metadata + editors ── */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
 
         {/* File name */}
@@ -340,6 +635,25 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
             <span className="text-xs font-medium text-ink-secondary">{doc.date}</span>
           </div>
         )}
+
+        {/* Amount — read-only, shown when set */}
+        {rawAmount !== null && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs text-ink-muted shrink-0">Amount</span>
+            <span className="text-xs font-medium text-ink-secondary tabular-nums">
+              {parseFloat(rawAmount).toLocaleString('en-US', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+          </div>
+        )}
+
+        <div className="h-px bg-border" />
+
+        {/* Allocation editor */}
+        <AllocationEditor docId={doc.id} rawAmount={rawAmount} />
+
       </div>
     </div>
   );
