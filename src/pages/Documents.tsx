@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { Upload, FileText, FileSpreadsheet, File, GripVertical, Search, X } from 'lucide-react';
+import { Upload, FileText, FileSpreadsheet, File, GripVertical, Search, X, Eye } from 'lucide-react';
 import { PageTitle } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -18,6 +18,7 @@ import { SkeletonTable } from '../components/ui/Skeleton';
 import { UploadModal } from '../components/documents/UploadModal';
 import { DocumentDetailPanel } from '../components/documents/DocumentDetailPanel';
 import type { DocumentRecord } from '../components/documents/DocumentDetailPanel';
+import { PreviewPanel } from '../components/documents/PreviewPanel';
 import { BatchClassifyBar } from '../components/documents/BatchClassifyBar';
 import { documentsApi, ApiError } from '../lib/api';
 import type { ApiDocument, DocumentType, DocumentStatus, SortBy, SortOrder } from '../lib/api';
@@ -161,6 +162,7 @@ export const Documents: React.FC = () => {
   const [activeTab, setActiveTab]     = useLocalStorage<TabValue>('taj_docs_tab', 'all');
   const [uploadOpen, setUploadOpen]   = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<DocumentRecord | null>(null);
+  const [previewDoc, setPreviewDoc]   = useState<DocumentRecord | null>(null);
   const [filters, setFilters]         = useState<FilterState>({});
   const [dateRange, setDateRange]     = useState<DateRange | null>(null);
   const [selected, setSelected]       = useState<Set<string>>(new Set());
@@ -399,7 +401,22 @@ export const Documents: React.FC = () => {
         <Badge variant={statusVariant(row.status as DocStatus)} dot size="sm">{row.status}</Badge>
       ),
     },
-  ], [selected, toggleSelect]);
+    {
+      key: '_preview', header: '', sortable: false, align: 'center' as const,
+      render: (row: Doc) => (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setPreviewDoc(row as DocumentRecord);
+          }}
+          aria-label={`Preview ${row.name}`}
+          className="p-1.5 rounded-lg text-ink-muted hover:text-gold-600 hover:bg-gold-50 transition-colors touch-target"
+        >
+          <Eye size={14} aria-hidden="true" />
+        </button>
+      ),
+    },
+  ], [selected, toggleSelect, setPreviewDoc]);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -431,138 +448,151 @@ export const Documents: React.FC = () => {
           </div>
         </div>
 
-        <Card padding="none">
-          {/* Tabs */}
-          <div className="px-4 pt-4">
-            <Tabs tabs={TABS} active={activeTab} onChange={handleTabChange} />
-          </div>
+        {/* ── Split layout: document list + optional inline preview panel ── */}
+        <div className="flex gap-4 items-start">
+          {/* ── Document list ── */}
+          <div className="flex-1 min-w-0">
+            <Card padding="none">
+              {/* Tabs */}
+              <div className="px-4 pt-4">
+                <Tabs tabs={TABS} active={activeTab} onChange={handleTabChange} />
+              </div>
 
-          {/* Search bar */}
-          <div className="px-4 pt-3 pb-0">
-            <div className="relative flex items-center">
-              <Search
-                size={15}
-                className="absolute left-3 text-ink-muted pointer-events-none"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Search by filename or vendor…"
-                aria-label="Search documents"
-                className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border bg-surface placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-transparent transition-shadow"
-              />
-              {searchInput && (
-                <button
-                  onClick={handleClearSearch}
-                  aria-label="Clear search"
-                  className="absolute right-3 text-ink-muted hover:text-ink-primary transition-colors"
-                >
-                  <X size={13} aria-hidden="true" />
-                </button>
-              )}
-            </div>
-          </div>
+              {/* Search bar */}
+              <div className="px-4 pt-3 pb-0">
+                <div className="relative flex items-center">
+                  <Search
+                    size={15}
+                    className="absolute left-3 text-ink-muted pointer-events-none"
+                    aria-hidden="true"
+                  />
+                  <input
+                    type="search"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Search by filename or vendor…"
+                    aria-label="Search documents"
+                    className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border bg-surface placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-transparent transition-shadow"
+                  />
+                  {searchInput && (
+                    <button
+                      onClick={handleClearSearch}
+                      aria-label="Clear search"
+                      className="absolute right-3 text-ink-muted hover:text-ink-primary transition-colors"
+                    >
+                      <X size={13} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-border">
-            <DateRangePicker value={dateRange} onChange={(r) => { setDateRange(r); setPage(1); }} />
-            <FilterPanel
-              groups={FILTER_GROUPS}
-              value={filters}
-              onChange={handleFilterChange}
-              onClear={() => { setFilters({}); setPage(1); }}
-            />
-            {(Object.keys(filters).some((k) =>
-              (filters[k as keyof FilterState] as string[] | undefined)?.length,
-            ) || dateRange) && (
-              <button
-                onClick={() => { setFilters({}); setDateRange(null); setPage(1); }}
-                className="text-xs text-red-500 font-medium hover:text-red-600 transition-colors"
-              >
-                {t('action.clearFilters')}
-              </button>
-            )}
-            {selected.size > 0 && (
-              <span className="ml-auto text-xs text-gold-600 font-medium">
-                {t('docs.selected').replace('{count}', String(selected.size))}
-              </span>
-            )}
-          </div>
-
-          {/* Reorder hint */}
-          {reorderMode && (
-            <div className="px-4 py-2 bg-gold-50 border-b border-gold-100 text-xs text-gold-700 font-medium">
-              {t('docs.reorder.hint')}
-            </div>
-          )}
-
-          {/* Content — loading / error / empty / list */}
-          {loading ? (
-            <SkeletonTable rows={6} cols={6} />
-          ) : error ? (
-            <div className="flex flex-col items-center gap-3 p-10">
-              <p className="text-sm text-red-600">{error}</p>
-              <Button variant="secondary" size="sm" onClick={reload}>
-                {t('action.retry', 'Try again')}
-              </Button>
-            </div>
-          ) : displayDocs.length === 0 ? (
-            <div className="p-4">
-              <EmptyState
-                icon={<Search size={22} />}
-                title={search ? 'No documents match your search' : t('docs.noResults')}
-                description={search ? `No results for "${search}". Try a different term.` : t('docs.noResults.hint')}
-                action={search ? {
-                  label:   'Clear search',
-                  onClick: handleClearSearch,
-                  icon:    <X size={13} aria-hidden="true" />,
-                } : {
-                  label:   t('docs.noResults.cta'),
-                  onClick: () => setUploadOpen(true),
-                  icon:    <Upload size={13} aria-hidden="true" />,
-                }}
-              />
-            </div>
-          ) : reorderMode ? (
-            /* ── Drag-to-reorder view (within current page) ── */
-            <div role="list" aria-label={t('page.documents.title')}>
-              {displayDocs.map((doc) => (
-                <DraggableRow
-                  key={doc.id}
-                  doc={doc}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}
-                  isDragging={dragId === doc.id}
-                  isDragOver={dragOverId === doc.id}
-                  hint={t('docs.reorder.dragHandle')}
+              {/* Toolbar */}
+              <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-border">
+                <DateRangePicker value={dateRange} onChange={(r) => { setDateRange(r); setPage(1); }} />
+                <FilterPanel
+                  groups={FILTER_GROUPS}
+                  value={filters}
+                  onChange={handleFilterChange}
+                  onClear={() => { setFilters({}); setPage(1); }}
                 />
-              ))}
+                {(Object.keys(filters).some((k) =>
+                  (filters[k as keyof FilterState] as string[] | undefined)?.length,
+                ) || dateRange) && (
+                  <button
+                    onClick={() => { setFilters({}); setDateRange(null); setPage(1); }}
+                    className="text-xs text-red-500 font-medium hover:text-red-600 transition-colors"
+                  >
+                    {t('action.clearFilters')}
+                  </button>
+                )}
+                {selected.size > 0 && (
+                  <span className="ml-auto text-xs text-gold-600 font-medium">
+                    {t('docs.selected').replace('{count}', String(selected.size))}
+                  </span>
+                )}
+              </div>
+
+              {/* Reorder hint */}
+              {reorderMode && (
+                <div className="px-4 py-2 bg-gold-50 border-b border-gold-100 text-xs text-gold-700 font-medium">
+                  {t('docs.reorder.hint')}
+                </div>
+              )}
+
+              {/* Content — loading / error / empty / list */}
+              {loading ? (
+                <SkeletonTable rows={6} cols={6} />
+              ) : error ? (
+                <div className="flex flex-col items-center gap-3 p-10">
+                  <p className="text-sm text-red-600">{error}</p>
+                  <Button variant="secondary" size="sm" onClick={reload}>
+                    {t('action.retry', 'Try again')}
+                  </Button>
+                </div>
+              ) : displayDocs.length === 0 ? (
+                <div className="p-4">
+                  <EmptyState
+                    icon={<Search size={22} />}
+                    title={search ? 'No documents match your search' : t('docs.noResults')}
+                    description={search ? `No results for "${search}". Try a different term.` : t('docs.noResults.hint')}
+                    action={search ? {
+                      label:   'Clear search',
+                      onClick: handleClearSearch,
+                      icon:    <X size={13} aria-hidden="true" />,
+                    } : {
+                      label:   t('docs.noResults.cta'),
+                      onClick: () => setUploadOpen(true),
+                      icon:    <Upload size={13} aria-hidden="true" />,
+                    }}
+                  />
+                </div>
+              ) : reorderMode ? (
+                /* ── Drag-to-reorder view (within current page) ── */
+                <div role="list" aria-label={t('page.documents.title')}>
+                  {displayDocs.map((doc) => (
+                    <DraggableRow
+                      key={doc.id}
+                      doc={doc}
+                      onDragStart={handleDragStart}
+                      onDragOver={handleDragOver}
+                      onDrop={handleDrop}
+                      isDragging={dragId === doc.id}
+                      isDragOver={dragOverId === doc.id}
+                      hint={t('docs.reorder.dragHandle')}
+                    />
+                  ))}
+                </div>
+              ) : (
+                /* ── Normal table + server-side pagination ── */
+                <>
+                  <SortableTable<Doc>
+                    columns={columns}
+                    data={displayDocs as Doc[]}
+                    keyExtractor={(row) => row.id}
+                    onRowClick={(row) => setSelectedDoc(row as DocumentRecord)}
+                    sortKey={SORT_TO_COLUMN[sortBy]}
+                    sortDir={sortDir}
+                    onSort={handleTableSort}
+                  />
+                  <Pagination
+                    page={page}
+                    totalPages={totalPages}
+                    totalItems={totalCount}
+                    pageSize={PAGE_SIZE}
+                    onChange={setPage}
+                  />
+                </>
+              )}
+            </Card>
+          </div>
+
+          {/* ── Inline preview panel (list stays visible) ── */}
+          {previewDoc && (
+            <div className="hidden sm:block w-80 xl:w-96 shrink-0 sticky top-4">
+              <PreviewPanel doc={previewDoc} onClose={() => setPreviewDoc(null)} />
             </div>
-          ) : (
-            /* ── Normal table + server-side pagination ── */
-            <>
-              <SortableTable<Doc>
-                columns={columns}
-                data={displayDocs as Doc[]}
-                keyExtractor={(row) => row.id}
-                onRowClick={(row) => setSelectedDoc(row as DocumentRecord)}
-                sortKey={SORT_TO_COLUMN[sortBy]}
-                sortDir={sortDir}
-                onSort={handleTableSort}
-              />
-              <Pagination
-                page={page}
-                totalPages={totalPages}
-                totalItems={totalCount}
-                pageSize={PAGE_SIZE}
-                onChange={setPage}
-              />
-            </>
           )}
-        </Card>
+        </div>
       </div>
 
       <UploadModal open={uploadOpen} onClose={() => { setUploadOpen(false); reload(); }} />
