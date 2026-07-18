@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, and, or, count, ilike, asc, desc, SQL } from 'drizzle-orm';
+import { eq, and, or, count, ilike, inArray, asc, desc, SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, pool } from '../db/index';
 import { documents, documentTypeEnum, documentStatusEnum } from '../db/schema';
@@ -37,8 +37,18 @@ const SORT_COLUMNS = {
 type SortableKey = keyof typeof SORT_COLUMNS;
 
 const listQuerySchema = z.object({
+  // Tab-level single filters (existing)
   type:      z.enum(documentTypes).optional(),
   status:    z.enum(documentStatuses).optional(),
+  // FilterPanel multi-select filters — Express may send one value (string) or many (string[])
+  statuses:  z.preprocess(
+    (v) => v === undefined ? undefined : Array.isArray(v) ? v : [v],
+    z.array(z.enum(documentStatuses)).optional(),
+  ),
+  types: z.preprocess(
+    (v) => v === undefined ? undefined : Array.isArray(v) ? v : [v],
+    z.array(z.enum(documentTypes)).optional(),
+  ),
   search:    z.string().trim().optional(),
   sortBy:    z.enum(['date','file_name','vendor','file_size','created_at','status','type']).default('date'),
   sortOrder: z.enum(['asc','desc']).default('desc'),
@@ -65,13 +75,15 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
     if (!query.success) {
       throw new AppError(400, 'INVALID_QUERY', query.error.errors[0]?.message ?? 'Invalid query parameters');
     }
-    const { type, status, search, sortBy, sortOrder, page, pageSize } = query.data;
+    const { type, status, statuses, types, search, sortBy, sortOrder, page, pageSize } = query.data;
     const offset = (page - 1) * pageSize;
 
-    // Build WHERE conditions
+    // Build WHERE conditions — tab filters (single value) AND panel filters (multi-value)
     const conditions: SQL[] = [];
-    if (type)   conditions.push(eq(documents.type,   type));
-    if (status) conditions.push(eq(documents.status, status));
+    if (type)              conditions.push(eq(documents.type,     type));
+    if (status)            conditions.push(eq(documents.status,   status));
+    if (statuses?.length)  conditions.push(inArray(documents.status, statuses));
+    if (types?.length)     conditions.push(inArray(documents.type,   types));
     if (search) {
       const term = `%${search}%`;
       conditions.push(

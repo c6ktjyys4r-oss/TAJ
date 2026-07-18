@@ -228,7 +228,16 @@ export const Documents: React.FC = () => {
     const apiParams = tabToApiParams(activeTab);
 
     documentsApi
-      .list({ page, pageSize: PAGE_SIZE, search: search || undefined, sortBy, sortOrder: sortDir, ...apiParams })
+      .list({
+        page,
+        pageSize:  PAGE_SIZE,
+        search:    search   || undefined,
+        sortBy,
+        sortOrder: sortDir,
+        statuses:  filters.status?.length ? (filters.status as DocumentStatus[]) : undefined,
+        types:     filters.type?.length   ? (filters.type   as DocumentType[])   : undefined,
+        ...apiParams,
+      })
       .then(({ items, totalCount: tc, totalPages: tp }) => {
         if (cancelled) return;
         const mapped = items.map(apiDocToRecord);
@@ -248,7 +257,7 @@ export const Documents: React.FC = () => {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [fetchId, page, activeTab, search, sortBy, sortDir]);
+  }, [fetchId, page, activeTab, search, sortBy, sortDir, filters]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -260,22 +269,27 @@ export const Documents: React.FC = () => {
     { value: 'statements'   as TabValue, label: t('docs.tab.statements'),   count: activeTab === 'statements'   ? totalCount : 0 },
   ], [totalCount, activeTab, t]);
 
+  // Counts reflect current page only — acceptable since full-dataset counts
+  // require separate queries (a future optimisation, out of scope here).
   const FILTER_GROUPS = useMemo(() => [
     {
       key: 'status', label: t('docs.filter.status'), type: 'multiselect' as const,
       options: [
-        { value: 'Classified',   label: t('status.classified'),   count: docs.filter((d) => d.status === 'Classified').length },
-        { value: 'Unclassified', label: t('status.unclassified'), count: docs.filter((d) => d.status === 'Unclassified').length },
-        { value: 'Needs Review', label: t('status.needsReview'),  count: docs.filter((d) => d.status === 'Needs Review').length },
+        { value: 'uploaded',   label: t('status.unclassified'), count: docs.filter((d) => d.status === 'Unclassified').length },
+        { value: 'classified', label: t('status.classified'),   count: docs.filter((d) => d.status === 'Classified').length },
+        { value: 'archived',   label: 'Archived',               count: docs.filter((d) => d.status === 'Archived').length },
       ],
     },
     {
       key: 'type', label: t('docs.filter.type'), type: 'multiselect' as const,
       options: [
-        { value: 'Invoice',   label: t('type.invoice')   },
-        { value: 'Receipt',   label: t('type.receipt')   },
-        { value: 'Statement', label: t('type.statement') },
-        { value: 'Contract',  label: t('type.contract')  },
+        { value: 'invoice',        label: t('type.invoice')   },
+        { value: 'receipt',        label: t('type.receipt')   },
+        { value: 'bank_statement', label: t('type.statement') },
+        { value: 'credit_note',    label: 'Credit Note'       },
+        { value: 'debit_note',     label: 'Debit Note'        },
+        { value: 'po',             label: 'PO'                },
+        { value: 'attachment',     label: 'Attachment'        },
       ],
     },
   ], [docs, t]);
@@ -288,15 +302,14 @@ export const Documents: React.FC = () => {
     return docOrder.map((id) => map.get(id)).filter((d): d is DocumentRecord => !!d);
   }, [docOrder, docs]);
 
+  // Status and type filtering is now server-side.
+  // DateRange remains client-side (server-side date filter is a future phase).
   const displayDocs = useMemo(() => {
-    if (!dateRange && !filters.status?.length && !filters.type?.length) return orderedDocs;
-    return orderedDocs.filter((d) => {
-      const statusMatch = !filters.status?.length || filters.status.includes(d.status);
-      const typeMatch   = !filters.type?.length   || filters.type.includes(d.type);
-      const dateMatch   = !dateRange || (d.date >= dateRange.from && d.date <= dateRange.to);
-      return statusMatch && typeMatch && dateMatch;
-    });
-  }, [orderedDocs, filters, dateRange]);
+    if (!dateRange) return orderedDocs;
+    return orderedDocs.filter(
+      (d) => d.date >= dateRange.from && d.date <= dateRange.to,
+    );
+  }, [orderedDocs, dateRange]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 

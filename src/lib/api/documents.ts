@@ -17,8 +17,14 @@ export type SortBy =
 export type SortOrder = 'asc' | 'desc';
 
 export interface ListDocumentsParams {
+  /** Tab-level single-value type filter (e.g. 'invoice' when Invoices tab is active). */
   type?:      DocumentType;
+  /** Tab-level single-value status filter (e.g. 'uploaded' for Unclassified tab). */
   status?:    DocumentStatus;
+  /** FilterPanel multi-select status filter — combined with `status` via AND. */
+  statuses?:  DocumentStatus[];
+  /** FilterPanel multi-select type filter — combined with `type` via AND. */
+  types?:     DocumentType[];
   /** Case-insensitive substring search across file_name and vendor. */
   search?:    string;
   /** Column to sort by. Default: 'date'. */
@@ -49,6 +55,9 @@ function buildQuery(params: ListDocumentsParams): string {
   const q = new URLSearchParams();
   if (params.type      !== undefined) q.set('type',      params.type);
   if (params.status    !== undefined) q.set('status',    params.status);
+  // Arrays — append once per value so Express parses them as string[]
+  params.statuses?.forEach((s) => q.append('statuses', s));
+  params.types?.forEach((t)    => q.append('types',    t));
   if (params.search)                  q.set('search',    params.search);
   if (params.sortBy)                  q.set('sortBy',    params.sortBy);
   if (params.sortOrder)               q.set('sortOrder', params.sortOrder);
