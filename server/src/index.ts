@@ -2,10 +2,11 @@ import cors from 'cors';
     import express from 'express';
     import pinoHttp from 'pino-http';
     import { config } from './config';
-    import { pool } from './db/index';
+    import { db, pool } from './db/index';
     import { errorHandler, notFoundHandler } from './middleware/errorHandler';
     import { logger } from './logger';
     import routes from './routes/index';
+    import { migrate } from 'drizzle-orm/node-postgres/migrator';
 
     const app = express();
 
@@ -49,12 +50,26 @@ import cors from 'cors';
 
     // ── Server startup ───────────────────────────────────────────────────────────
 
-    const server = app.listen(config.PORT, () => {
-    logger.info(
-      { port: config.PORT, env: config.NODE_ENV, cors: config.CORS_ORIGIN },
-      'TAJ Finance API started',
-    );
+    // Run pending database migrations before accepting traffic.
+    // Drizzle tracks applied migrations in drizzle.__drizzle_migrations; re-applying
+    // an already-applied migration is a no-op, so this is safe on every restart.
+    let server: ReturnType<typeof app.listen>;
+    (async () => {
+    try {
+      await migrate(db, { migrationsFolder: './migrations' });
+      logger.info('Database migrations up to date');
+    } catch (err) {
+      logger.error({ err }, 'Migration failed — aborting startup');
+      process.exit(1);
+    }
+
+    server = app.listen(config.PORT, () => {
+      logger.info(
+        { port: config.PORT, env: config.NODE_ENV, cors: config.CORS_ORIGIN },
+        'TAJ Finance API started',
+      );
     });
+    })();
 
     // ── Graceful shutdown ────────────────────────────────────────────────────────
 
