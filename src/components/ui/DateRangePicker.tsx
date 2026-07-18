@@ -11,13 +11,33 @@ interface DateRangePickerProps {
   className?: string;
 }
 
-const PRESETS: { label: string; range: DateRange }[] = [
-  { label: 'This month',     range: { from: '2024-10-01', to: '2024-10-31' } },
-  { label: 'Last 3 months',  range: { from: '2024-08-01', to: '2024-10-31' } },
-  { label: 'This quarter',   range: { from: '2024-10-01', to: '2024-12-31' } },
-  { label: 'This year',      range: { from: '2024-01-01', to: '2024-12-31' } },
-  { label: 'Last year',      range: { from: '2023-01-01', to: '2023-12-31' } },
-];
+function buildPresets(): { label: string; range: DateRange }[] {
+  const now  = new Date();
+  const y    = now.getFullYear();
+  const m    = now.getMonth() + 1;              // 1-based
+  const pad  = (n: number) => String(n).padStart(2, '0');
+  const eom  = (yr: number, mo: number) =>      // last day of month
+    new Date(yr, mo, 0).getDate();
+
+  const thisMonthFrom = `${y}-${pad(m)}-01`;
+  const thisMonthTo   = `${y}-${pad(m)}-${pad(eom(y, m))}`;
+
+  const l3m    = new Date(y, now.getMonth() - 2, 1);   // 2 months back
+  const l3From = `${l3m.getFullYear()}-${pad(l3m.getMonth() + 1)}-01`;
+
+  const qStart    = Math.floor((m - 1) / 3) * 3 + 1;  // first month of quarter
+  const qEnd      = qStart + 2;                         // last  month of quarter
+  const thisQFrom = `${y}-${pad(qStart)}-01`;
+  const thisQTo   = `${y}-${pad(qEnd)}-${pad(eom(y, qEnd))}`;
+
+  return [
+    { label: 'This month',    range: { from: thisMonthFrom, to: thisMonthTo } },
+    { label: 'Last 3 months', range: { from: l3From,        to: thisMonthTo } },
+    { label: 'This quarter',  range: { from: thisQFrom,     to: thisQTo     } },
+    { label: 'This year',     range: { from: `${y}-01-01`,     to: `${y}-12-31`     } },
+    { label: 'Last year',     range: { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` } },
+  ];
+}
 
 function fmt(d: string) {
   if (!d) return '';
@@ -28,6 +48,9 @@ function fmt(d: string) {
 export const DateRangePicker: React.FC<DateRangePickerProps> = ({
   value, onChange, placeholder = 'Select date range', className
 }) => {
+  // Dynamic presets computed relative to the real current date.
+  const PRESETS = buildPresets();
+
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(value?.from ?? '');
   const [to, setTo]     = useState(value?.to   ?? '');
