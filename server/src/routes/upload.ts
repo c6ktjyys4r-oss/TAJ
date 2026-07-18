@@ -1,124 +1,147 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
-import { eq } from 'drizzle-orm';
-import { db } from '../db/index';
-import { documents } from '../db/schema';
-import { AppError } from '../middleware/errorHandler';
+    import multer from 'multer';
+    import { pool } from '../db/index';
+    import { AppError } from '../middleware/errorHandler';
+    import { logger } from '../logger';
 
-const router = Router();
+    const router = Router();
 
-// ── Storage configuration ─────────────────────────────────────────────────────
+    // ── Constants ─────────────────────────────────────────────────────────────────
 
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads');
+    /** 10 MB — reasonable cap for PostgreSQL bytea storage in Beta. */
+    const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
-// Ensure upload directory exists at startup
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+    /** Accepted MIME types for this phase. */
+    const ALLOWED_MIME_TYPES = new Set([
+    'application/pdf',
+    'image/jpeg',
+    'image/png',
+    ]);
 
-const ALLOWED_MIME_TYPES = new Set([
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/tiff',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
-  'application/vnd.ms-excel',                                           // xls
-  'text/csv',
-]);
+    // ── Multer — memory storage ───────────────────────────────────────────────────
 
-const MAX_FILE_SIZE_BYTES = 20 * 1024 * 1024; // 20 MB
+    /**
+    * Files are buffered in process memory for the duration of the request.
+    * They are written transactionally into PostgreSQL — no disk I/O involved.
+    */
+    const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_FILE_SIZE_BYTES },
+    fileFilter: (_req, file, cb) => {
+      if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new AppError(
+          415,
+          'UNSUPPORTED_MEDIA_TYPE',
+          `File type '${file.mimetype}' is not allowed. Accepted: PDF, JPEG, PNG`,
+        ));
+      }
+    },
+    });
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ts   = Date.now();
-    const ext  = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext)
-      .replace(/[^a-zA-Z0-9_-]/g, '_')
-      .slice(0, 64);
-    cb(null, `${ts}-${base}${ext}`);
-  },
-});
+    // ── POST /api/upload ──────────────────────────────────────────────────────────
 
-const upload = multer({
-  storage,
-  limits: { fileSize: MAX_FILE_SIZE_BYTES },
-  fileFilter: (_req, file, cb) => {
-    if (ALLOWED_MIME_TYPES.has(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new AppError(415, 'UNSUPPORTED_MEDIA_TYPE', `File type '${file.mimetype}' is not supported. Allowed: PDF, JPEG, PNG, WebP, TIFF, XLSX, XLS, CSV`));
-    }
-  },
-});
-
-// ── POST /api/upload ──────────────────────────────────────────────────────────
-
-/**
- * Upload a file and attach it to a document.
- *
- * Multipart form fields:
- *   file        — required; the file to upload
- *   documentId  — optional; UUID of an existing document to attach the file to
- *
- * If documentId is omitted, a new document record is created with status 'uploaded'
- * and type defaulting to 'attachment' (caller should PATCH to correct the type).
- */
-router.post('/', upload.single('file'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  try {
-    if (!req.file) {
-      throw new AppError(400, 'NO_FILE', 'A file must be attached under the field name "file"');
-    }
-
-    const { documentId } = req.body as { documentId?: string };
-
-    const fileFields = {
-      file_path:  req.file.path,
-      file_name:  req.file.originalname,
-      file_size:  String(req.file.size),
-      mime_type:  req.file.mimetype,
-      updated_at: new Date(),
-    };
-
-    if (documentId) {
-      // Attach to existing document
-      const [existing] = await db.select().from(documents).where(eq(documents.id, documentId));
-      if (!existing) {
-        // Remove the orphaned upload
-        fs.unlink(req.file.path, () => { /* best-effort */ });
-        throw new AppError(404, 'DOCUMENT_NOT_FOUND', `Document ${documentId} not found`);
+    /**
+    * Upload a file and attach it to a document.
+    *
+    * Multipart form fields:
+    *   file        — required; PDF, JPEG, or PNG; max 10 MB
+    *   documentId  — optional UUID of an existing document to attach the file to
+    *
+    * Transactional guarantee: file bytes and document record are written inside a
+    * single PostgreSQL transaction. Either both succeed or neither is persisted —
+    * no orphaned files, no orphaned records.
+    */
+    router.post(
+    '/',
+    upload.single('file'),
+    async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+      if (!req.file) {
+        next(new AppError(400, 'NO_FILE', 'A file must be attached under the field name "file"'));
+        return;
       }
 
-      const [updated] = await db
-        .update(documents)
-        .set(fileFields)
-        .where(eq(documents.id, documentId))
-        .returning();
+      const { documentId } = req.body as { documentId?: string };
+      const file = req.file;
 
-      res.json({ document: updated, file: { name: req.file.originalname, size: req.file.size, mime: req.file.mimetype } });
-    } else {
-      // Create a new document record for this upload
-      const [created] = await db
-        .insert(documents)
-        .values({
-          type:    'attachment',
-          status:  'uploaded',
-          ...fileFields,
-        })
-        .returning();
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
 
-      res.status(201).json({ document: created, file: { name: req.file.originalname, size: req.file.size, mime: req.file.mimetype } });
-    }
-  } catch (err) {
-    // Clean up uploaded file if any db error occurred
-    if (req.file) {
-      fs.unlink(req.file.path, () => { /* best-effort */ });
-    }
-    next(err);
-  }
-});
+        // ── 1. Store file bytes ────────────────────────────────────────────────
+        const { rows: [fileRow] } = await client.query<{ id: string }>(
+          `INSERT INTO document_files (file_name, mime_type, file_size, content)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
+          [file.originalname, file.mimetype, file.size, file.buffer],
+        );
+        const storageKey = fileRow.id;
 
-export default router;
+        const fileInfo = {
+          name: file.originalname,
+          size: file.size,
+          mime: file.mimetype,
+          storageKey,
+        };
+
+        if (documentId) {
+          // ── 2a. Verify the document exists ───────────────────────────────────
+          const { rows: [existing] } = await client.query<{
+            id: string;
+            file_path: string | null;
+          }>('SELECT id, file_path FROM documents WHERE id = $1', [documentId]);
+
+          if (!existing) {
+            await client.query('ROLLBACK');
+            client.release();
+            next(new AppError(404, 'DOCUMENT_NOT_FOUND', `Document ${documentId} not found`));
+            return;
+          }
+
+          const previousKey = existing.file_path;
+
+          // ── 2b. Update document record ───────────────────────────────────────
+          const { rows: [updated] } = await client.query(
+            `UPDATE documents
+               SET file_path  = $1,
+                   file_name  = $2,
+                   file_size  = $3,
+                   mime_type  = $4,
+                   updated_at = now()
+             WHERE id = $5
+             RETURNING *`,
+            [storageKey, file.originalname, String(file.size), file.mimetype, documentId],
+          );
+
+          // ── 2c. Delete the superseded file bytes in the same transaction ─────
+          if (previousKey) {
+            await client.query('DELETE FROM document_files WHERE id = $1', [previousKey]);
+            logger.info({ documentId, previousKey, storageKey }, 'Replaced stored file');
+          }
+
+          await client.query('COMMIT');
+          res.json({ document: updated, file: fileInfo });
+        } else {
+          // ── 3. Create new document ───────────────────────────────────────────
+          const { rows: [created] } = await client.query(
+            `INSERT INTO documents (type, status, file_path, file_name, file_size, mime_type)
+             VALUES ('attachment', 'uploaded', $1, $2, $3, $4)
+             RETURNING *`,
+            [storageKey, file.originalname, String(file.size), file.mimetype],
+          );
+
+          await client.query('COMMIT');
+          res.status(201).json({ document: created, file: fileInfo });
+        }
+      } catch (err) {
+        await client.query('ROLLBACK').catch(() => { /* ignore rollback errors */ });
+        next(err);
+      } finally {
+        client.release();
+      }
+    },
+    );
+
+    export default router;
+    

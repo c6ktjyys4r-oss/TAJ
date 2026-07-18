@@ -1,13 +1,15 @@
 import { Router } from 'express';
-import healthRouter    from './health';
-import documentsRouter from './documents';
-import uploadRouter    from './upload';
+    import healthRouter    from './health';
+    import documentsRouter from './documents';
+    import filesRouter     from './files';
+    import uploadRouter    from './upload';
 
-const router = Router();
+    const router = Router();
 
-// All routes are prefixed with /api
-router.use('/api', healthRouter);
-router.use('/api/documents', documentsRouter);
-router.use('/api/upload',    uploadRouter);
+    router.use('/api',           healthRouter);
+    router.use('/api/documents', documentsRouter);
+    router.use('/api/documents', filesRouter);   // GET /:id/file
+    router.use('/api/upload',    uploadRouter);
 
-export default router;
+    export default router;
+    
