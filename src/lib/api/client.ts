@@ -96,6 +96,14 @@
       });
     },
 
+    put<T>(path: string, body: unknown): Promise<T> {
+      return request<T>(path, {
+        method: 'PUT',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    },
+
     patch<T>(path: string, body: unknown): Promise<T> {
       return request<T>(path, {
         method: 'PATCH',

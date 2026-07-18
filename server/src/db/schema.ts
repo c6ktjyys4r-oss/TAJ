@@ -2,6 +2,7 @@ import {
     customType,
     date,
     decimal,
+    index,
     integer,
     jsonb,
     pgEnum,
@@ -91,4 +92,37 @@ import {
     export type Document     = typeof documents.$inferSelect;
     export type NewDocument  = typeof documents.$inferInsert;
     export type DocumentFile = typeof documentFiles.$inferSelect;
+
+    /**
+     * allocations — splits an expense document across one or more branches.
+     *
+     * Integrity rules:
+     *   document_id FK → documents(id)  ON DELETE CASCADE
+     *     Deleting a document removes all its allocations atomically.
+     *   DB-level CHECK (amount > 0): see migration 0003.
+     *
+     * Application-layer invariant (enforced by the route handler):
+     *   SUM(allocations.amount) WHERE document_id = X
+     *     == documents.amount WHERE id = X
+     *   (validated only when documents.amount IS NOT NULL)
+     */
+    export const allocations = pgTable(
+      'allocations',
+      {
+        id:          uuid('id').primaryKey().defaultRandom(),
+        document_id: uuid('document_id')
+                       .notNull()
+                       .references(() => documents.id, { onDelete: 'cascade' }),
+        branch:      text('branch').notNull(),
+        amount:      decimal('amount', { precision: 15, scale: 2 }).notNull(),
+        created_at:  timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+        updated_at:  timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+      },
+      (table) => [
+        index('allocations_document_id_idx').on(table.document_id),
+      ],
+    );
+
+    export type Allocation    = typeof allocations.$inferSelect;
+    export type NewAllocation = typeof allocations.$inferInsert;
     

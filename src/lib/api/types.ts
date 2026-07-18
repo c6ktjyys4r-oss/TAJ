@@ -98,3 +98,20 @@ export interface ApiErrorBody {
   message: string;   // human-readable description
   code:    number;   // HTTP status code (mirrors the HTTP status)
 }
+
+// ── Allocation ────────────────────────────────────────────────────────────────
+
+/**
+ * A single allocation row returned by GET|PUT /api/documents/:id/allocations.
+ *
+ * `amount` is a decimal string (e.g. "1234.50") — use Number() or parseFloat()
+ * when arithmetic is needed.
+ */
+export interface ApiAllocation {
+  id:          string;
+  document_id: string;
+  branch:      string;
+  amount:      string;   // decimal string, e.g. "500.00"
+  created_at:  string;   // ISO 8601
+  updated_at:  string;   // ISO 8601
+}

@@ -14,6 +14,7 @@ export { api, ApiError, BASE_URL } from './client';
 export { documentsApi }            from './documents';
 export { uploadApi }               from './upload';
 export { healthApi }               from './health';
+export { allocationsApi }          from './allocations';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type {
@@ -25,7 +26,10 @@ export type {
   UploadResult,
   HealthResponse,
   ApiErrorBody,
+  ApiAllocation,
 } from './types';
+
+export type { AllocationInput } from './allocations';
 
 export type {
   ListDocumentsParams,
