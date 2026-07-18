@@ -9,6 +9,8 @@ export { createProvider, loadProviderConfig } from './factory';
 export { queueDocument }                      from './pipeline';
 export { applyPolicyDecisions }               from './policy';
 export { cancelJob, getQueueStats, configureQueue } from './queue';
+// AiError is a class (value + type); export as value so callers can do instanceof checks
+export { AiError } from './types';
 export type {
   AiProvider,
   AiProviderConfig,
@@ -17,8 +19,6 @@ export type {
   ProcessDocumentInput,
   HealthCheckResult,
   ChatMessage,
-  AiError,
   AiErrorCode,
 } from './types';
-export { AiError as AiErrorClass } from './types';
 export type { ProcessDocumentResultWithActions, ExtractionFieldWithAction } from './policy';

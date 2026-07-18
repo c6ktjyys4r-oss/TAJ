@@ -34,7 +34,6 @@ import { logger } from '../../logger';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const DEFAULT_BASE = 'https://api.openai.com';
-const TIMEOUT_MS   = 30_000;
 
 const VALID_DOCUMENT_TYPES = new Set([
   'invoice', 'receipt', 'bank_statement',
