@@ -431,7 +431,9 @@ router.get('/documents/:id', async (req: Request, res: Response, next: NextFunct
   try {
     const { id } = req.params;
     const { rows } = await pool.query<Record<string, unknown>>(
-      `SELECT id, document_id, status, result, error, attempts, created_at, updated_at
+      `SELECT id, document_id, status, result, error, attempts,
+              provider, model, processing_time_ms, overall_confidence, raw_response,
+              created_at, updated_at
          FROM ai_document_jobs WHERE document_id = $1`,
       [id],
     );

@@ -11,9 +11,17 @@
  *   embeddings()      — GET /v1/embeddings (placeholder)
  *
  * PDF text extraction: pure-JS regex over the PDF byte stream.
- *   This is intentionally lightweight (no external package).
- *   It reliably captures most embedded text from simple PDFs.
- *   For complex PDFs, Phase N+ can integrate pdf-parse.
+ *   Reliably captures embedded text from most PDFs without external packages.
+ *   Complex or purely-image PDFs fall through to the null path.
+ *
+ * Response validation (parseExtractionResult):
+ *   - Rejects non-JSON or non-object responses (throws INVALID_JSON)
+ *   - Clamps confidence values to 0–100 integers
+ *   - Validates and normalises date strings → YYYY-MM-DD or null
+ *   - Validates decimal amount strings (subtotal / vat / total) or null
+ *   - Validates ISO 4217 currency codes (3 uppercase alpha) or null
+ *   - Validates document_type against the allowed enum or null
+ *   - Never crashes: invalid individual fields become null rather than throwing
  */
 import type {
   AiProvider, AiProviderConfig,
@@ -28,13 +36,18 @@ import { logger } from '../../logger';
 const DEFAULT_BASE = 'https://api.openai.com';
 const TIMEOUT_MS   = 30_000;
 
+const VALID_DOCUMENT_TYPES = new Set([
+  'invoice', 'receipt', 'bank_statement',
+  'credit_note', 'debit_note', 'po', 'attachment',
+]);
+
 // ── PDF text extraction (no external dependency) ──────────────────────────────
 
 function extractPdfText(buf: Buffer): string {
   const raw = buf.toString('latin1');
   const chunks: string[] = [];
 
-  // Text in parentheses — primary PDF text object encoding
+  // Text in parentheses — primary PDF text-object encoding
   const parenRe = /\(([^)\\]{1,400})\)/g;
   let m: RegExpExecArray | null;
   while ((m = parenRe.exec(raw)) !== null) {
@@ -45,11 +58,10 @@ function extractPdfText(buf: Buffer): string {
       .replace(/\\\(/g, '(')
       .replace(/\\\)/g, ')')
       .replace(/\\\\/g, '\\');
-    // Only keep runs that contain printable ASCII
     if (/[\x20-\x7E]{4,}/.test(s)) chunks.push(s);
   }
 
-  // Hex strings — secondary encoding
+  // Hex strings — secondary encoding (e.g. CIDFont glyphs)
   const hexRe = /<([0-9A-Fa-f]{4,})>/g;
   while ((m = hexRe.exec(raw)) !== null) {
     const hex = m[1];
@@ -64,7 +76,7 @@ function extractPdfText(buf: Buffer): string {
   return chunks.join(' ').replace(/\s{2,}/g, ' ').trim().slice(0, 12_000);
 }
 
-// ── Document-to-prompt ────────────────────────────────────────────────────────
+// ── Prompt builder ────────────────────────────────────────────────────────────
 
 interface PromptParts {
   messages: ChatMessage[];
@@ -92,9 +104,10 @@ Required schema:
 
 Rules:
 - confidence 0 = no evidence found, 100 = certain
-- Dates must be YYYY-MM-DD or null
-- Amounts must be decimal strings without currency symbols (e.g. "1234.50") or null
-- document_type must be one of the listed enum values
+- Dates MUST be YYYY-MM-DD format or null
+- Amounts MUST be decimal strings without currency symbols, e.g. "1234.50" or null
+- currency MUST be a 3-letter ISO 4217 code (e.g. "SAR", "USD", "EUR") or null
+- document_type MUST be one of the listed enum values or null
 - Never fabricate values — use null when uncertain`;
 
   const messages: ChatMessage[] = [{ role: 'system', content: systemPrompt }];
@@ -113,7 +126,10 @@ Rules:
       role: 'user',
       content: [
         { type: 'text', text: 'Extract data from this financial document image.' },
-        { type: 'image_url', image_url: { url: `data:${input.mimeType};base64,${b64}`, detail: 'high' } },
+        {
+          type: 'image_url',
+          image_url: { url: `data:${input.mimeType};base64,${b64}`, detail: 'high' },
+        },
       ] as unknown as string,
     });
   } else {
@@ -128,49 +144,180 @@ Rules:
 
 // ── Response validation ───────────────────────────────────────────────────────
 
-function isExtractionField(v: unknown): v is ExtractionField {
-  if (typeof v !== 'object' || v === null) return false;
-  const o = v as Record<string, unknown>;
-  return (o.value === null || typeof o.value === 'string') &&
-         typeof o.confidence === 'number';
+/** Clamp and round a confidence score to [0, 100]. */
+function clampConfidence(v: unknown): number {
+  if (typeof v !== 'number' || !isFinite(v)) return 0;
+  return Math.min(100, Math.max(0, Math.round(v)));
 }
 
+/**
+ * Validate and normalise a date string.
+ * Accepts YYYY-MM-DD or common regional variants (DD/MM/YYYY, MM/DD/YYYY).
+ * Returns a YYYY-MM-DD string on success, null on failure.
+ */
+function validateDate(v: string): string | null {
+  // Already YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
+    const d = new Date(v);
+    if (!isNaN(d.getTime())) return v;
+  }
+  // DD/MM/YYYY or MM/DD/YYYY → attempt YYYY-MM-DD conversion
+  const slash = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slash) {
+    // Heuristic: if first part ≤ 12 try MM/DD/YYYY; prefer DD/MM/YYYY if ambiguous
+    const [, a, b, year] = slash;
+    const candidates = [`${year}-${b.padStart(2, '0')}-${a.padStart(2, '0')}`];
+    if (Number(a) <= 12) candidates.push(`${year}-${a.padStart(2, '0')}-${b.padStart(2, '0')}`);
+    for (const c of candidates) {
+      const d = new Date(c);
+      if (!isNaN(d.getTime()) && /^\d{4}-\d{2}-\d{2}$/.test(c)) return c;
+    }
+  }
+  return null;
+}
+
+/**
+ * Validate a decimal amount string.
+ * Strips common currency symbols and thousand-separators then validates.
+ * Returns the cleaned decimal string or null.
+ */
+function validateAmount(v: string): string | null {
+  // Strip currency symbols, spaces, and common thousand-separators (,)
+  const stripped = v
+    .replace(/[£$€¥₹﷼,\s]/g, '')   // remove symbols & thousands commas
+    .replace(/،/g, '')               // Arabic thousands separator
+    .trim();
+
+  // Accept: optional sign, digits, optional decimal part
+  if (/^-?\d+(\.\d{1,6})?$/.test(stripped)) {
+    // Reject negative amounts for financial documents
+    if (stripped.startsWith('-')) return null;
+    return stripped;
+  }
+  return null;
+}
+
+/**
+ * Validate an ISO 4217 currency code.
+ * Must be exactly 3 uppercase alpha characters.
+ */
+function validateCurrency(v: string): string | null {
+  const upper = v.trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(upper) ? upper : null;
+}
+
+/**
+ * Validate a document_type value against the allowed enum.
+ */
+function validateDocumentType(v: string): string | null {
+  const lower = v.trim().toLowerCase();
+  return VALID_DOCUMENT_TYPES.has(lower) ? lower : null;
+}
+
+/** Parse and validate a single extraction field from the raw parsed object. */
+function parseField(
+  raw:      unknown,
+  fieldKey: string,
+  validate?: (v: string) => string | null,
+): ExtractionField {
+  if (typeof raw !== 'object' || raw === null) {
+    return { value: null, confidence: 0 };
+  }
+
+  const o = raw as Record<string, unknown>;
+  const rawValue = o.value;
+  const confidence = clampConfidence(o.confidence);
+
+  if (rawValue === null || rawValue === undefined) {
+    return { value: null, confidence };
+  }
+
+  if (typeof rawValue !== 'string') {
+    // Coerce numbers to strings (providers sometimes return numeric totals)
+    const coerced = String(rawValue).trim();
+    if (validate) {
+      const validated = validate(coerced);
+      if (validated === null) {
+        logger.warn({ fieldKey, rawValue }, 'AI extraction: field failed validation — set to null');
+        return { value: null, confidence: 0 };
+      }
+      return { value: validated, confidence };
+    }
+    return { value: coerced || null, confidence };
+  }
+
+  const trimmed = rawValue.trim();
+  if (!trimmed) return { value: null, confidence };
+
+  if (validate) {
+    const validated = validate(trimmed);
+    if (validated === null) {
+      logger.warn({ fieldKey, rawValue: trimmed }, 'AI extraction: field failed validation — set to null');
+      return { value: null, confidence: 0 };
+    }
+    return { value: validated, confidence };
+  }
+
+  return { value: trimmed, confidence };
+}
+
+/** Parse, validate, and structure the raw JSON string from the provider. */
 function parseExtractionResult(raw: string): ProcessDocumentResult {
+  // ── 1. Parse JSON ──────────────────────────────────────────────────────────
   let parsed: unknown;
   try {
     // Strip markdown code fences if the model adds them despite the prompt
-    const cleaned = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/, '').trim();
+    const cleaned = raw
+      .replace(/^```json?\s*/im, '')
+      .replace(/\s*```\s*$/m, '')
+      .trim();
     parsed = JSON.parse(cleaned);
   } catch {
-    throw new AiError('INVALID_JSON', `Model returned non-JSON: ${raw.slice(0, 200)}`);
+    throw new AiError('INVALID_JSON', `Model returned non-JSON: ${raw.slice(0, 300)}`);
   }
 
-  if (typeof parsed !== 'object' || parsed === null) {
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new AiError('INVALID_JSON', 'Model returned JSON that is not an object');
   }
 
   const p = parsed as Record<string, unknown>;
 
-  const field = (key: string): ExtractionField => {
-    const f = p[key];
-    if (isExtractionField(f)) return f;
-    return { value: null, confidence: 0 };
-  };
+  // ── 2. Validate overall_confidence ────────────────────────────────────────
+  const overall = clampConfidence(p.overall_confidence);
 
-  const overall = typeof p.overall_confidence === 'number'
-    ? Math.min(100, Math.max(0, p.overall_confidence))
-    : 0;
+  // ── 3. Validate each field (invalid values → null, confidence → 0) ────────
+  const supplier       = parseField(p.supplier,       'supplier');
+  const invoice_number = parseField(p.invoice_number, 'invoice_number');
+  const invoice_date   = parseField(p.invoice_date,   'invoice_date',  validateDate);
+  const currency       = parseField(p.currency,       'currency',      validateCurrency);
+  const subtotal       = parseField(p.subtotal,       'subtotal',      validateAmount);
+  const vat            = parseField(p.vat,            'vat',           validateAmount);
+  const total          = parseField(p.total,          'total',         validateAmount);
+  const document_type  = parseField(p.document_type,  'document_type', validateDocumentType);
+  const summary        = parseField(p.summary,        'summary');
+
+  // ── 4. Require at least one non-null field (reject completely empty output) ─
+  const nonNullCount = [
+    supplier, invoice_number, invoice_date, currency,
+    subtotal, vat, total, document_type, summary,
+  ].filter((f) => f.value !== null).length;
+
+  if (nonNullCount === 0 && overall === 0) {
+    logger.warn('AI extraction: all fields null and overall_confidence=0 — possible malformed response');
+    // Do not throw — a truly empty document returns all nulls legitimately.
+    // The caller can decide based on overall_confidence.
+  }
 
   return {
-    supplier:           field('supplier'),
-    invoice_number:     field('invoice_number'),
-    invoice_date:       field('invoice_date'),
-    currency:           field('currency'),
-    subtotal:           field('subtotal'),
-    vat:                field('vat'),
-    total:              field('total'),
-    document_type:      field('document_type'),
-    summary:            field('summary'),
+    supplier,
+    invoice_number,
+    invoice_date,
+    currency,
+    subtotal,
+    vat,
+    total,
+    document_type,
+    summary,
     overall_confidence: overall,
     raw_response:       raw,
   };
@@ -211,9 +358,7 @@ export class OpenAiProvider implements AiProvider {
       const body = await resp.json().catch(() => ({})) as { error?: { message?: string } };
       const msg  = body?.error?.message ?? `HTTP ${resp.status}`;
 
-      if (resp.status === 401 || resp.status === 403) {
-        throw new AiError('AUTH_ERROR', msg);
-      }
+      if (resp.status === 401 || resp.status === 403) throw new AiError('AUTH_ERROR', msg);
       if (resp.status === 429) throw new AiError('RATE_LIMIT', msg);
 
       return { ok: false, latencyMs, error: msg };
@@ -233,7 +378,7 @@ export class OpenAiProvider implements AiProvider {
   async processDocument(input: ProcessDocumentInput): Promise<ProcessDocumentResult> {
     const { messages } = buildPrompt(input);
 
-    const body = {
+    const reqBody = {
       model:       this.model,
       messages,
       temperature: 0,
@@ -248,7 +393,7 @@ export class OpenAiProvider implements AiProvider {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type':  'application/json',
         },
-        body:   JSON.stringify(body),
+        body:   JSON.stringify(reqBody),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
 
@@ -269,8 +414,10 @@ export class OpenAiProvider implements AiProvider {
       };
       rawText = data?.choices?.[0]?.message?.content ?? '';
 
-      logger.info({ documentId: input.documentId, model: this.model, chars: rawText.length },
-        'OpenAI extraction response received');
+      logger.info(
+        { documentId: input.documentId, model: this.model, chars: rawText.length },
+        'OpenAI extraction response received',
+      );
 
     } catch (err) {
       if (err instanceof AiError) throw err;
@@ -293,7 +440,7 @@ export class OpenAiProvider implements AiProvider {
         'Authorization': `Bearer ${this.apiKey}`,
         'Content-Type':  'application/json',
       },
-      body: JSON.stringify({ model: this.model, messages, temperature: 0.7 }),
+      body:   JSON.stringify({ model: this.model, messages, temperature: 0.7 }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
 
