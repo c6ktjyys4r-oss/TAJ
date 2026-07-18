@@ -11,18 +11,31 @@
 import type { Pool } from 'pg';
 import type { AiProvider, AiProviderConfig } from './types';
 import { OpenAiProvider }          from './providers/openai';
+import { OllamaProvider }          from './providers/ollama';
 import { NotImplementedProvider }  from './providers/not-implemented';
 
 // ── Factory ───────────────────────────────────────────────────────────────────
 
+/**
+ * Return the concrete AiProvider for the given config.
+ *
+ * Currently implemented:  openai, ollama
+ * Stubbed (NOT_IMPLEMENTED): anthropic, gemini, openrouter
+ *
+ * Adding a new provider:
+ *   1. Create server/src/ai/providers/<name>.ts implementing AiProvider.
+ *   2. Add a case here — no other files change.
+ *   3. Add the provider name to AiProviderConfig['provider'] union in types.ts.
+ */
 export function createProvider(config: AiProviderConfig): AiProvider {
   switch (config.provider) {
     case 'openai':
       return new OpenAiProvider(config);
+    case 'ollama':
+      return new OllamaProvider(config);
     case 'anthropic':
     case 'gemini':
     case 'openrouter':
-    case 'ollama':
     default:
       return new NotImplementedProvider(config);
   }
