@@ -16,6 +16,7 @@ import {
   ChevronLeft, ChevronRight, Loader2, GitBranch,
   Plus, Trash2, Layers, Calendar, Hash, AlignLeft,
 } from 'lucide-react';
+import { AiSuggestionsPanel } from './AiSuggestionsPanel';
 import { clsx } from 'clsx';
 import { Badge }           from '../ui/Badge';
 import { toast }           from '../ui/Toast';
@@ -820,6 +821,11 @@ export const PreviewPanel: React.FC<PreviewPanelProps> = ({
 
         {/* Allocation editor */}
         <AllocationEditor docId={doc.id} rawAmount={rawAmount} />
+
+        <div className="h-px bg-border" />
+
+        {/* AI Suggestions */}
+        <AiSuggestionsPanel documentId={doc.id} />
 
       </div>
     </div>
