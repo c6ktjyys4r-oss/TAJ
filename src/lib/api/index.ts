@@ -15,6 +15,7 @@ export { documentsApi }            from './documents';
 export { uploadApi }               from './upload';
 export { healthApi }               from './health';
 export { allocationsApi }          from './allocations';
+export { reportsApi }              from './reports';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 export type {
@@ -27,6 +28,12 @@ export type {
   HealthResponse,
   ApiErrorBody,
   ApiAllocation,
+  ReportFilters,
+  ReportKpis,
+  ReportCategoryRow,
+  ReportBranchRow,
+  ReportSummary,
+  ReportBranchesResponse,
 } from './types';
 
 export type { AllocationInput } from './allocations';

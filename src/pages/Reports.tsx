@@ -1,222 +1,363 @@
-import React, { useState, useMemo } from 'react';
-import { Plus, BarChart2, FileText, Calendar, CheckCircle, Clock, Download } from 'lucide-react';
-import { PageTitle } from '../components/ui/Typography';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
-import { SortableTable } from '../components/ui/SortableTable';
-import { FilterPanel } from '../components/ui/FilterPanel';
-import type { FilterState } from '../components/ui/FilterPanel';
-import { ExportButton } from '../components/ui/ExportButton';
-import { AnimatedCounter } from '../components/ui/AnimatedCounter';
-import { ReportWizard } from '../components/reports/ReportWizard';
-import { useT } from '../hooks/useT';
+/**
+ * Reports page — Sprint: Reports Foundation (MVP)
+ *
+ * Shows allocation-aware expense KPIs and breakdowns.
+ * Filters: Date From, Date To, Branch, Category.
+ * No charts, no exports, no AI — tables and cards only.
+ */
+import React, { useCallback, useEffect, useState } from 'react';
+import { PageTitle }  from '../components/ui/Typography';
+import { Card }       from '../components/ui/Card';
+import { reportsApi } from '../lib/api';
+import type {
+  ReportFilters,
+  ReportSummary,
+  DocumentType,
+} from '../lib/api';
 
-interface Report {
-  id: string; title: string; type: string; status: string;
-  date: string; pages: number; size: string;
-  [key: string]: unknown;
-}
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const REPORTS: Report[] = [
-  { id: '1', title: 'Q4 Financial Summary',        type: 'Quarterly', status: 'Ready',      date: '2024-10-15', pages: 24,  size: '2.1 MB' },
-  { id: '2', title: 'October Bank Reconciliation', type: 'Monthly',   status: 'Ready',      date: '2024-10-14', pages: 8,   size: '640 KB' },
-  { id: '3', title: 'Vendor Spend Analysis',       type: 'Custom',    status: 'Processing', date: '2024-10-14', pages: 0,   size: '\u2014' },
-  { id: '4', title: 'September Financial Summary', type: 'Monthly',   status: 'Ready',      date: '2024-10-01', pages: 18,  size: '1.8 MB' },
-  { id: '5', title: 'Annual Audit Package 2023',   type: 'Annual',    status: 'Ready',      date: '2024-09-15', pages: 142, size: '12.4 MB' },
-  { id: '6', title: 'Tax Filing Preparation Q3',   type: 'Quarterly', status: 'Ready',      date: '2024-09-01', pages: 32,  size: '3.2 MB' },
-];
-
-const FILTER_GROUPS = [
-  {
-    key: 'type', label: 'Type', type: 'multiselect' as const,
-    options: [
-      { value: 'Monthly',   label: 'Monthly'   },
-      { value: 'Quarterly', label: 'Quarterly' },
-      { value: 'Annual',    label: 'Annual'    },
-      { value: 'Custom',    label: 'Custom'    },
-    ],
-  },
-  {
-    key: 'status', label: 'Status', type: 'multiselect' as const,
-    options: [
-      { value: 'Ready',      label: 'Ready'      },
-      { value: 'Processing', label: 'Processing' },
-    ],
-  },
-];
-
-const typeVariant: Record<string, 'gold' | 'info' | 'default'> = {
-  Quarterly: 'gold', Monthly: 'info', Annual: 'gold', Custom: 'default',
+const CATEGORY_LABELS: Record<string, string> = {
+  invoice:       'Invoice',
+  receipt:       'Receipt',
+  bank_statement:'Bank Statement',
+  credit_note:   'Credit Note',
+  debit_note:    'Debit Note',
+  po:            'Purchase Order',
+  attachment:    'Attachment',
 };
 
-// ── Print-only report table ──────────────────────────────────────────────────
+const CATEGORY_OPTIONS: DocumentType[] = [
+  'invoice', 'receipt', 'bank_statement',
+  'credit_note', 'debit_note', 'po', 'attachment',
+];
 
-interface PrintableReportProps { reports: Report[]; t: (k: string) => string; }
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const PrintableReport: React.FC<PrintableReportProps> = ({ reports, t }) => (
-  <div className="hidden print:block print-report">
-    {/* Header */}
-    <div className="print-header">
-      <div className="print-logo">
-        <span>T</span>
-      </div>
-      <div>
-        <h1 className="print-title">TAJ Finance</h1>
-        <p className="print-subtitle">{t('reports.print.title')}</p>
-      </div>
-      <div className="print-meta">
-        <p>{t('reports.print.generated')}: {new Date().toLocaleDateString('en-SA', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
-        <p>{reports.length} {t('reports.allReports').toLowerCase()}</p>
-      </div>
-    </div>
+function formatAmount(amount: string, currency = 'SAR'): string {
+  const n = parseFloat(amount);
+  if (isNaN(n)) return '—';
+  return n.toLocaleString('en-SA', {
+    style:                 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
 
-    {/* Table */}
-    <table className="print-table">
-      <thead>
-        <tr>
-          <th>{t('reports.print.report')}</th>
-          <th>{t('reports.print.type')}</th>
-          <th>{t('reports.print.status')}</th>
-          <th>{t('reports.print.date')}</th>
-          <th className="text-right">{t('reports.print.pages')}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {reports.map((r) => (
-          <tr key={r.id}>
-            <td className="font-medium">{r.title}</td>
-            <td>{r.type}</td>
-            <td>{r.status}</td>
-            <td>{r.date}</td>
-            <td className="text-right">{r.pages > 0 ? r.pages : '\u2014'}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+// ── Sub-components ────────────────────────────────────────────────────────────
 
-    {/* Footer */}
-    <div className="print-footer">
-      <span>TAJ Finance \u2014 Confidential</span>
-      <span className="print-page-num" />
-    </div>
-  </div>
+interface KpiCardProps {
+  label:    string;
+  value:    string;
+  sub?:     string;
+  loading?: boolean;
+}
+
+const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, loading }) => (
+  <Card className="p-5 flex flex-col gap-1">
+    <span className="text-xs font-medium text-ink-400 uppercase tracking-wide">
+      {label}
+    </span>
+    {loading ? (
+      <div className="h-8 w-32 rounded bg-surface-100 animate-pulse mt-1" />
+    ) : (
+      <span className="text-2xl font-semibold text-ink-900 tabular-nums">
+        {value}
+      </span>
+    )}
+    {sub && !loading && (
+      <span className="text-xs text-ink-400">{sub}</span>
+    )}
+  </Card>
 );
 
-// ── Main page ────────────────────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
 export const Reports: React.FC = () => {
-  const t = useT();
-  const [wizardOpen, setWizardOpen] = useState(false);
-  const [filters, setFilters]       = useState<FilterState>({});
+  // ── Filter state ────────────────────────────────────────────────────────────
+  const [filters, setFilters] = useState<ReportFilters>({});
+  const [draftFilters, setDraftFilters] = useState<ReportFilters>({});
 
-  const filtered = useMemo(() => REPORTS.filter((r) => {
-    const typeMatch   = !filters.type?.length   || filters.type.includes(r.type);
-    const statusMatch = !filters.status?.length || filters.status.includes(r.status);
-    return typeMatch && statusMatch;
-  }), [filters]);
+  // ── Data state ──────────────────────────────────────────────────────────────
+  const [summary, setSummary]         = useState<ReportSummary | null>(null);
+  const [branches, setBranches]       = useState<string[]>([]);
+  const [loading, setLoading]         = useState(false);
+  const [error, setError]             = useState<string | null>(null);
 
-  const columns = [
-    {
-      key: 'title', header: 'Report', sortable: true,
-      render: (r: Report) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gold-50 flex items-center justify-center shrink-0">
-            <FileText size={15} className="text-gold-600" aria-hidden="true" />
-          </div>
-          <span className="text-sm font-medium text-ink-primary">{r.title}</span>
-        </div>
-      ),
-    },
-    {
-      key: 'type', header: 'Type', sortable: true,
-      render: (r: Report) => <Badge variant={typeVariant[r.type] ?? 'default'}>{r.type}</Badge>,
-    },
-    {
-      key: 'status', header: 'Status', sortable: true,
-      render: (r: Report) => r.status === 'Processing'
-        ? <Badge variant="warning" dot>{t('status.processing')}</Badge>
-        : <Badge variant="success" dot>{t('status.ready')}</Badge>,
-    },
-    { key: 'date',  header: 'Date',  sortable: true, align: 'right' as const },
-    { key: 'pages', header: 'Pages', sortable: true, align: 'right' as const,
-      render: (r: Report) => <span>{r.pages > 0 ? r.pages : '\u2014'}</span> },
-    { key: 'size',  header: 'Size',  align: 'right' as const },
-    {
-      key: 'actions', header: '', sortable: false,
-      render: (r: Report) => r.status === 'Processing' ? null : (
-        <Button variant="ghost" size="sm" icon={<Download size={13} aria-hidden="true" />}>
-          {t('action.download')}
-        </Button>
-      ),
-    },
-  ];
+  // ── Fetch branches once on mount ────────────────────────────────────────────
+  useEffect(() => {
+    reportsApi.branches()
+      .then((r) => setBranches(r.branches))
+      .catch(() => { /* silently ignore — dropdown just stays empty */ });
+  }, []);
 
-  const STAT_CARDS = [
-    { label: t('reports.stat.total'),      value: 24, icon: BarChart2,   color: 'text-gold-600 bg-gold-50' },
-    { label: t('reports.stat.thisMonth'),  value: 6,  icon: Calendar,    color: 'text-blue-600 bg-blue-50'  },
-    { label: t('reports.stat.ready'),      value: 5,  icon: CheckCircle, color: 'text-emerald-600 bg-emerald-50' },
-    { label: t('reports.stat.processing'), value: 1,  icon: Clock,       color: 'text-amber-600 bg-amber-50' },
-  ];
+  // ── Fetch summary whenever applied filters change ───────────────────────────
+  const fetchSummary = useCallback(async (f: ReportFilters) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await reportsApi.summary(f);
+      setSummary(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load report data.');
+      setSummary(null);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchSummary(filters);
+  }, [filters, fetchSummary]);
+
+  // ── Handlers ─────────────────────────────────────────────────────────────────
+  const handleApply = () => setFilters({ ...draftFilters });
+
+  const handleReset = () => {
+    setDraftFilters({});
+    setFilters({});
+  };
+
+  const kpis = summary?.kpis;
 
   return (
-    <>
-      {/* Print-only layout */}
-      <PrintableReport reports={filtered} t={t} />
+    <div className="space-y-6">
+      <PageTitle>Reports</PageTitle>
 
-      <div className="space-y-6 no-print">
-        <div className="flex items-center justify-between">
-          <div>
-            <PageTitle>{t('page.reports.title')}</PageTitle>
-            <p className="text-sm text-ink-muted mt-1">{t('reports.subtitle')}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <ExportButton filename="reports" />
-            <Button icon={<Plus size={15} aria-hidden="true" />} onClick={() => setWizardOpen(true)}>
-              {t('reports.generate')}
-            </Button>
-          </div>
-        </div>
-
-        {/* Animated stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {STAT_CARDS.map(({ label, value, icon: Icon, color }) => (
-            <Card key={label} padding="md">
-              <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>
-                  <Icon size={18} aria-hidden="true" />
-                </div>
-                <div>
-                  <AnimatedCounter target={value} className="text-2xl font-bold text-ink-primary font-serif" />
-                  <p className="text-xs text-ink-muted">{label}</p>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-
-        {/* Reports table */}
-        <Card padding="none">
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h3 className="text-sm font-semibold text-ink-primary">{t('reports.allReports')}</h3>
-            <FilterPanel
-              groups={FILTER_GROUPS}
-              value={filters}
-              onChange={setFilters}
-              onClear={() => setFilters({})}
+      {/* ── Filter panel ───────────────────────────────────────────────────── */}
+      <Card className="p-4">
+        <h2 className="text-sm font-semibold text-ink-700 mb-3">Filters</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Date From */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-ink-500" htmlFor="rpt-date-from">
+              Date From
+            </label>
+            <input
+              id="rpt-date-from"
+              type="date"
+              value={draftFilters.dateFrom ?? ''}
+              onChange={(e) =>
+                setDraftFilters((f) => ({
+                  ...f,
+                  dateFrom: e.target.value || undefined,
+                }))
+              }
+              className="h-9 rounded-md border border-border bg-white px-3 text-sm text-ink-900
+                         focus:outline-none focus:ring-2 focus:ring-gold-500"
             />
           </div>
-          <SortableTable<Report>
-            columns={columns}
-            data={filtered}
-            keyExtractor={(r) => r.id}
-            defaultSort={{ key: 'date', dir: 'desc' }}
-            emptyMessage={t('reports.noMatch')}
-          />
-        </Card>
+
+          {/* Date To */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-ink-500" htmlFor="rpt-date-to">
+              Date To
+            </label>
+            <input
+              id="rpt-date-to"
+              type="date"
+              value={draftFilters.dateTo ?? ''}
+              onChange={(e) =>
+                setDraftFilters((f) => ({
+                  ...f,
+                  dateTo: e.target.value || undefined,
+                }))
+              }
+              className="h-9 rounded-md border border-border bg-white px-3 text-sm text-ink-900
+                         focus:outline-none focus:ring-2 focus:ring-gold-500"
+            />
+          </div>
+
+          {/* Branch */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-ink-500" htmlFor="rpt-branch">
+              Branch
+            </label>
+            <select
+              id="rpt-branch"
+              value={draftFilters.branch ?? ''}
+              onChange={(e) =>
+                setDraftFilters((f) => ({
+                  ...f,
+                  branch: e.target.value || undefined,
+                }))
+              }
+              className="h-9 rounded-md border border-border bg-white px-3 text-sm text-ink-900
+                         focus:outline-none focus:ring-2 focus:ring-gold-500"
+            >
+              <option value="">All branches</option>
+              {branches.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Category */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-ink-500" htmlFor="rpt-category">
+              Category
+            </label>
+            <select
+              id="rpt-category"
+              value={draftFilters.category ?? ''}
+              onChange={(e) =>
+                setDraftFilters((f) => ({
+                  ...f,
+                  category: (e.target.value as DocumentType) || undefined,
+                }))
+              }
+              className="h-9 rounded-md border border-border bg-white px-3 text-sm text-ink-900
+                         focus:outline-none focus:ring-2 focus:ring-gold-500"
+            >
+              <option value="">All categories</option>
+              {CATEGORY_OPTIONS.map((c) => (
+                <option key={c} value={c}>{CATEGORY_LABELS[c] ?? c}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            onClick={handleApply}
+            className="h-8 px-4 rounded-md bg-gold-500 text-white text-sm font-medium
+                       hover:bg-gold-600 focus:outline-none focus:ring-2 focus:ring-gold-500
+                       transition-colors"
+          >
+            Apply
+          </button>
+          <button
+            onClick={handleReset}
+            className="h-8 px-4 rounded-md border border-border bg-white text-sm text-ink-600
+                       hover:bg-surface-50 focus:outline-none focus:ring-2 focus:ring-gold-500
+                       transition-colors"
+          >
+            Reset
+          </button>
+        </div>
+      </Card>
+
+      {/* ── Error ──────────────────────────────────────────────────────────── */}
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {/* ── KPI cards ──────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <KpiCard
+          label="Total Expenses"
+          value={kpis ? formatAmount(kpis.totalExpenses) : '—'}
+          loading={loading}
+        />
+        <KpiCard
+          label="Number of Documents"
+          value={kpis ? kpis.documentCount.toLocaleString() : '—'}
+          loading={loading}
+        />
+        <KpiCard
+          label="Average Expense"
+          value={kpis ? formatAmount(kpis.averageExpense) : '—'}
+          loading={loading}
+        />
       </div>
 
-      <ReportWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
-    </>
+      {/* ── Breakdown tables ────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {/* Expenses by Category */}
+        <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold text-ink-800">Expenses by Category</h2>
+          </div>
+          {loading ? (
+            <div className="p-5 space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-6 rounded bg-surface-100 animate-pulse" />
+              ))}
+            </div>
+          ) : !summary || summary.byCategory.length === 0 ? (
+            <div className="px-5 py-8 text-sm text-ink-400 text-center">
+              No data for the selected filters.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface-50 text-xs font-medium text-ink-500 uppercase tracking-wide">
+                  <th className="px-5 py-3 text-left">Category</th>
+                  <th className="px-5 py-3 text-right">Documents</th>
+                  <th className="px-5 py-3 text-right">Amount (SAR)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {summary.byCategory.map((row) => (
+                  <tr key={row.category} className="hover:bg-surface-50 transition-colors">
+                    <td className="px-5 py-3 font-medium text-ink-800">
+                      {CATEGORY_LABELS[row.category] ?? row.category}
+                    </td>
+                    <td className="px-5 py-3 text-right text-ink-600 tabular-nums">
+                      {row.count.toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3 text-right font-semibold text-ink-900 tabular-nums">
+                      {formatAmount(row.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+
+        {/* Expenses by Branch */}
+        <Card className="p-0 overflow-hidden">
+          <div className="px-5 py-4 border-b border-border">
+            <h2 className="text-sm font-semibold text-ink-800">Expenses by Branch</h2>
+            <p className="text-xs text-ink-400 mt-0.5">
+              Based on allocation amounts. Documents without allocations are not included.
+            </p>
+          </div>
+          {loading ? (
+            <div className="p-5 space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-6 rounded bg-surface-100 animate-pulse" />
+              ))}
+            </div>
+          ) : !summary || summary.byBranch.length === 0 ? (
+            <div className="px-5 py-8 text-sm text-ink-400 text-center">
+              No allocation data for the selected filters.
+            </div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface-50 text-xs font-medium text-ink-500 uppercase tracking-wide">
+                  <th className="px-5 py-3 text-left">Branch</th>
+                  <th className="px-5 py-3 text-right">Documents</th>
+                  <th className="px-5 py-3 text-right">Amount (SAR)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {summary.byBranch.map((row) => (
+                  <tr key={row.branch} className="hover:bg-surface-50 transition-colors">
+                    <td className="px-5 py-3 font-medium text-ink-800">
+                      {row.branch}
+                    </td>
+                    <td className="px-5 py-3 text-right text-ink-600 tabular-nums">
+                      {row.count.toLocaleString()}
+                    </td>
+                    <td className="px-5 py-3 text-right font-semibold text-ink-900 tabular-nums">
+                      {formatAmount(row.amount)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+
+      </div>
+    </div>
   );
 };

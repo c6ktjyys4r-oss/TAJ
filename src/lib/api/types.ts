@@ -115,3 +115,59 @@ export interface ApiAllocation {
   created_at:  string;   // ISO 8601
   updated_at:  string;   // ISO 8601
 }
+
+// ── Reports ───────────────────────────────────────────────────────────────────
+
+/** Query parameters for GET /api/reports/summary */
+export interface ReportFilters {
+  /** Inclusive start date (YYYY-MM-DD). */
+  dateFrom?: string;
+  /** Inclusive end date (YYYY-MM-DD). */
+  dateTo?: string;
+  /** Filter to a specific branch (allocation branch name). */
+  branch?: string;
+  /** Filter to a specific document type / expense category. */
+  category?: DocumentType;
+}
+
+/** KPI totals returned by GET /api/reports/summary */
+export interface ReportKpis {
+  /** Sum of all matching expense amounts (decimal string, e.g. "12345.67"). */
+  totalExpenses: string;
+  /** Count of matching documents. */
+  documentCount: number;
+  /** Average expense amount (decimal string). */
+  averageExpense: string;
+}
+
+/** A single row in the byCategory breakdown. */
+export interface ReportCategoryRow {
+  /** Document type / expense category (e.g. "invoice"). */
+  category: string;
+  /** Total amount for this category (decimal string). */
+  amount: string;
+  /** Number of documents in this category. */
+  count: number;
+}
+
+/** A single row in the byBranch breakdown. */
+export interface ReportBranchRow {
+  /** Branch name. */
+  branch: string;
+  /** Total allocated amount for this branch (decimal string). */
+  amount: string;
+  /** Number of documents with allocations for this branch. */
+  count: number;
+}
+
+/** Full response from GET /api/reports/summary */
+export interface ReportSummary {
+  kpis: ReportKpis;
+  byCategory: ReportCategoryRow[];
+  byBranch: ReportBranchRow[];
+}
+
+/** Response from GET /api/reports/branches */
+export interface ReportBranchesResponse {
+  branches: string[];
+}
