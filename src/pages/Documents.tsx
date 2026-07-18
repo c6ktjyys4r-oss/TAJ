@@ -23,6 +23,8 @@ import { documentsApi, ApiError } from '../lib/api';
 import type { ApiDocument, DocumentType, DocumentStatus, SortBy, SortOrder } from '../lib/api';
 import { useT } from '../hooks/useT';
 import { clsx } from 'clsx';
+import { InlineCategorySelect } from '../components/documents/InlineCategorySelect';
+import { Toaster } from '../components/ui/Toast';
 
 // ── API → UI mappers ──────────────────────────────────────────────────────────
 
@@ -80,6 +82,7 @@ function tabToApiParams(tab: TabValue): { type?: DocumentType; status?: Document
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type DocStatus = DocumentRecord['status'];
+type RichRecord = DocumentRecord & { rawType: DocumentType };
 
 function statusVariant(s: DocStatus): 'success' | 'warning' | 'default' {
   if (s === 'Classified')   return 'success';
@@ -146,7 +149,7 @@ export const Documents: React.FC = () => {
 
   // ── Remote state ──────────────────────────────────────────────────────────
 
-  const [docs,       setDocs]       = useState<DocumentRecord[]>([]);
+  const [docs,       setDocs]       = useState<RichRecord[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading,    setLoading]    = useState(true);
@@ -240,7 +243,7 @@ export const Documents: React.FC = () => {
       })
       .then(({ items, totalCount: tc, totalPages: tp }) => {
         if (cancelled) return;
-        const mapped = items.map(apiDocToRecord);
+        const mapped = items.map((d) => ({ ...apiDocToRecord(d), rawType: d.type }));
         setDocs(mapped);
         setTotalCount(tc);
         setTotalPages(tp);
@@ -299,7 +302,7 @@ export const Documents: React.FC = () => {
   const orderedDocs = useMemo(() => {
     if (docOrder.length === 0) return docs;
     const map = new Map(docs.map((d) => [d.id, d]));
-    return docOrder.map((id) => map.get(id)).filter((d): d is DocumentRecord => !!d);
+    return docOrder.map((id) => map.get(id)).filter((d): d is RichRecord => !!d);
   }, [docOrder, docs]);
 
   // Status and type filtering is now server-side.
@@ -377,8 +380,16 @@ export const Documents: React.FC = () => {
         </div>
       ),
     },
-    { key: 'type',   header: 'Type',   sortable: true,
-      render: (row: Doc) => <Badge variant="default" size="sm">{row.type}</Badge> },
+    {
+      key: 'type', header: 'Type', sortable: true,
+      render: (row: Doc) => (
+        <InlineCategorySelect
+          docId={row.id}
+          currentType={row.rawType as DocumentType}
+          onSuccess={reload}
+        />
+      ),
+    },
     { key: 'vendor', header: 'Vendor', sortable: true },
     { key: 'date',   header: 'Date',   sortable: true,  align: 'right' as const },
     { key: 'size',   header: 'Size',   sortable: false, align: 'right' as const },
@@ -572,6 +583,7 @@ export const Documents: React.FC = () => {
           onClassify={() => setSelected(new Set())}
         />
       )}
+      <Toaster />
     </>
   );
 };
