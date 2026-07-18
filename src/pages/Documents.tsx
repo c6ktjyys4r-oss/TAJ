@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { Upload, FileText, FileSpreadsheet, File, GripVertical } from 'lucide-react';
+import { Upload, FileText, FileSpreadsheet, File, GripVertical, Search, X } from 'lucide-react';
 import { PageTitle } from '../components/ui/Typography';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
@@ -167,7 +167,23 @@ export const Documents: React.FC = () => {
   const [dragId, setDragId]           = useState<string | null>(null);
   const [dragOverId, setDragOverId]   = useState<string | null>(null);
 
-  // ── Fetch (server-side pagination) ────────────────────────────────────────
+  // ── Search state (debounced) ──────────────────────────────────────────────
+
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch]           = useState('');
+
+  // Debounce: commit search and reset to page 1 after 300 ms of no typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== search) {
+        setSearch(searchInput);
+        setPage(1);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Fetch (server-side pagination + search) ───────────────────────────────
 
   const reload = useCallback(() => setFetchId((n) => n + 1), []);
 
@@ -179,7 +195,7 @@ export const Documents: React.FC = () => {
     const apiParams = tabToApiParams(activeTab);
 
     documentsApi
-      .list({ page, pageSize: PAGE_SIZE, ...apiParams })
+      .list({ page, pageSize: PAGE_SIZE, search: search || undefined, ...apiParams })
       .then(({ items, totalCount: tc, totalPages: tp }) => {
         if (cancelled) return;
         const mapped = items.map(apiDocToRecord);
@@ -199,7 +215,7 @@ export const Documents: React.FC = () => {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [fetchId, page, activeTab]);
+  }, [fetchId, page, activeTab, search]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -258,6 +274,12 @@ export const Documents: React.FC = () => {
   };
 
   const handleFilterChange = (f: FilterState) => { setFilters(f); setPage(1); };
+
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearch('');
+    setPage(1);
+  };
 
   const toggleSelect = useCallback((id: string) => {
     setSelected((prev) => {
@@ -358,6 +380,34 @@ export const Documents: React.FC = () => {
             <Tabs tabs={TABS} active={activeTab} onChange={handleTabChange} />
           </div>
 
+          {/* Search bar */}
+          <div className="px-4 pt-3 pb-0">
+            <div className="relative flex items-center">
+              <Search
+                size={15}
+                className="absolute left-3 text-ink-muted pointer-events-none"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Search by filename or vendor…"
+                aria-label="Search documents"
+                className="w-full pl-9 pr-8 py-2 text-sm rounded-lg border border-border bg-surface placeholder:text-ink-muted focus:outline-none focus:ring-2 focus:ring-gold-400 focus:border-transparent transition-shadow"
+              />
+              {searchInput && (
+                <button
+                  onClick={handleClearSearch}
+                  aria-label="Clear search"
+                  className="absolute right-3 text-ink-muted hover:text-ink-primary transition-colors"
+                >
+                  <X size={13} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-2 px-4 py-3 border-b border-border">
             <DateRangePicker value={dateRange} onChange={(r) => { setDateRange(r); setPage(1); }} />
@@ -404,10 +454,14 @@ export const Documents: React.FC = () => {
           ) : displayDocs.length === 0 ? (
             <div className="p-4">
               <EmptyState
-                icon={<FileText size={22} />}
-                title={t('docs.noResults')}
-                description={t('docs.noResults.hint')}
-                action={{
+                icon={<Search size={22} />}
+                title={search ? 'No documents match your search' : t('docs.noResults')}
+                description={search ? `No results for "${search}". Try a different term.` : t('docs.noResults.hint')}
+                action={search ? {
+                  label:   'Clear search',
+                  onClick: handleClearSearch,
+                  icon:    <X size={13} aria-hidden="true" />,
+                } : {
                   label:   t('docs.noResults.cta'),
                   onClick: () => setUploadOpen(true),
                   icon:    <Upload size={13} aria-hidden="true" />,

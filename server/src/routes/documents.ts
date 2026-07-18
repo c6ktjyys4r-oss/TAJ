@@ -1,5 +1,5 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { eq, and, count, SQL } from 'drizzle-orm';
+import { eq, and, or, count, ilike, SQL } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, pool } from '../db/index';
 import { documents, documentTypeEnum, documentStatusEnum } from '../db/schema';
@@ -27,6 +27,7 @@ const updateDocumentSchema = createDocumentSchema.partial();
 const listQuerySchema = z.object({
   type:     z.enum(documentTypes).optional(),
   status:   z.enum(documentStatuses).optional(),
+  search:   z.string().trim().optional(),
   page:     z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -38,6 +39,9 @@ const listQuerySchema = z.object({
  * Never loads the entire table into memory — LIMIT/OFFSET is applied at
  * the database level alongside a parallel COUNT(*) query.
  *
+ * Optional `search` param performs a case-insensitive ILIKE match against
+ * file_name and vendor — the only text fields available without a schema change.
+ *
  * Response shape:
  *   { items, totalCount, currentPage, pageSize, totalPages }
  */
@@ -47,13 +51,22 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
     if (!query.success) {
       throw new AppError(400, 'INVALID_QUERY', query.error.errors[0]?.message ?? 'Invalid query parameters');
     }
-    const { type, status, page, pageSize } = query.data;
+    const { type, status, search, page, pageSize } = query.data;
     const offset = (page - 1) * pageSize;
 
     // Build WHERE conditions
     const conditions: SQL[] = [];
     if (type)   conditions.push(eq(documents.type,   type));
     if (status) conditions.push(eq(documents.status, status));
+    if (search) {
+      const term = `%${search}%`;
+      conditions.push(
+        or(
+          ilike(documents.file_name, term),
+          ilike(documents.vendor,    term),
+        ) as SQL,
+      );
+    }
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Run COUNT and paginated SELECT in parallel — neither loads the full table
